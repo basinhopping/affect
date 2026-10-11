@@ -1,0 +1,15 @@
+# Packages for the node environment, installed by scripts/setup_env.sh into ~/venvs/affect.
+# Versions are not pinned here: the exact versions installed are frozen into
+# artifacts/env/pip_freeze_<utc>.txt when the environment is built, and every run records the
+# versions it used. Packages for later build steps (transformers for the pretrained model,
+# spikingjelly or snntorch for the LIF models) are added when that step starts.
+torch
+numpy
+scipy
+pandas
+matplotlib
+soundfile
+librosa
+papermill
+ipykernel
+nbformat

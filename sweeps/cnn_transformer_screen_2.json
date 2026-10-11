@@ -1,0 +1,389 @@
+{
+ "sweep_id": "cnn_transformer_screen_2",
+ "description": "Second screen of the CNN + Transformer (model family 2). Screen 1's best configurations sat at the edge of its space (the deepest front end offered, 4 blocks, and the smallest d_model, 64), so this screen adds five-block and wider four-block front ends (the CNN finalists' shapes), d_model 32, 1 to 3 layers, the finalists' 48 mel bands and stronger SpecAugment, always flattened frequencies and pre-norm layers, and learning rates of at most 0.0005 (all five failures of screen 1 had post-norm layers and 0.001). Stage random: 60 configurations. Stage finalist_front_end: cnn_final_2's whole recipe with a small Transformer inserted between its front end and its pooling (frequencies flattened or averaged, d_model 64 or 128, 1 or 2 layers); the same recipe without a Transformer is cnn_final_2, whose seeds 1 to 3 are in cnn_screen_2 (random 80). The base is screen 1's base (aaca69fbac98), 5 seeds, so both screens share one reference. 3 seeds per configuration, session-out folds. Priority 100. Validation only.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn_transformer",
+   "channels": [
+    32,
+    64,
+    128
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "freq_reduce": "mean",
+   "d_model": 128,
+   "n_heads": 4,
+   "n_layers": 2,
+   "ff_dim": 256,
+   "transformer_dropout": 0.1,
+   "transformer_activation": "gelu",
+   "norm_first": true,
+   "positional": "sinusoidal",
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0003,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "random",
+   "kind": "random",
+   "priority": 100,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "n_configs": 60,
+   "sampling_seed": 20260930,
+   "space": {
+    "model.channels": [
+     [
+      32,
+      64,
+      128,
+      256
+     ],
+     [
+      48,
+      96,
+      192,
+      384
+     ],
+     [
+      32,
+      64,
+      128,
+      256,
+      512
+     ]
+    ],
+    "model.freq_reduce": [
+     "flatten"
+    ],
+    "model.d_model": [
+     32,
+     64,
+     128
+    ],
+    "model.n_heads": [
+     2,
+     4
+    ],
+    "model.n_layers": [
+     1,
+     2,
+     3
+    ],
+    "model.ff_dim": [
+     128,
+     256,
+     512
+    ],
+    "model.transformer_dropout": [
+     0.1,
+     0.2
+    ],
+    "model.positional": [
+     "sinusoidal",
+     "none"
+    ],
+    "model.pooling": [
+     "attention",
+     "stats",
+     "mean"
+    ],
+    "model.dropout": [
+     0.2,
+     0.3
+    ],
+    "features.n_mels": [
+     48,
+     64
+    ],
+    "specaugment": [
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 8,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 20
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 12,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 30
+     }
+    ],
+    "train.class_balance": [
+     "weighted_loss",
+     "none"
+    ],
+    "train.lr": [
+     0.0001,
+     0.0003,
+     0.0005
+    ],
+    "train.weight_decay": [
+     0.0001,
+     0.001
+    ],
+    "train.batch_size": [
+     16,
+     32
+    ],
+    "train.warmup_epochs": [
+     2,
+     5
+    ],
+    "train.crop_s": [
+     5.0,
+     7.5,
+     10.0
+    ]
+   }
+  },
+  {
+   "name": "finalist_front_end",
+   "kind": "variants",
+   "priority": 100,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "cnn_final_2 front end, flatten frequencies, d_model 64, 1 layer": {
+     "features.n_mels": 48,
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.freq_reduce": "flatten",
+     "model.d_model": 64,
+     "model.n_layers": 1,
+     "model.pooling": "stats",
+     "train.lr": 0.001,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.crop_s": 4.0
+    },
+    "cnn_final_2 front end, flatten frequencies, d_model 64, 2 layers": {
+     "features.n_mels": 48,
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.freq_reduce": "flatten",
+     "model.d_model": 64,
+     "model.pooling": "stats",
+     "train.lr": 0.001,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.crop_s": 4.0
+    },
+    "cnn_final_2 front end, flatten frequencies, d_model 128, 1 layer": {
+     "features.n_mels": 48,
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 1,
+     "model.pooling": "stats",
+     "train.lr": 0.001,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.crop_s": 4.0
+    },
+    "cnn_final_2 front end, flatten frequencies, d_model 128, 2 layers": {
+     "features.n_mels": 48,
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.freq_reduce": "flatten",
+     "model.pooling": "stats",
+     "train.lr": 0.001,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.crop_s": 4.0
+    },
+    "cnn_final_2 front end, mean frequencies, d_model 64, 1 layer": {
+     "features.n_mels": 48,
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.d_model": 64,
+     "model.n_layers": 1,
+     "model.pooling": "stats",
+     "train.lr": 0.001,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.crop_s": 4.0
+    },
+    "cnn_final_2 front end, mean frequencies, d_model 64, 2 layers": {
+     "features.n_mels": 48,
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.d_model": 64,
+     "model.pooling": "stats",
+     "train.lr": 0.001,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.crop_s": 4.0
+    },
+    "cnn_final_2 front end, mean frequencies, d_model 128, 1 layer": {
+     "features.n_mels": 48,
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.n_layers": 1,
+     "model.pooling": "stats",
+     "train.lr": 0.001,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.crop_s": 4.0
+    },
+    "cnn_final_2 front end, mean frequencies, d_model 128, 2 layers": {
+     "features.n_mels": 48,
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.pooling": "stats",
+     "train.lr": 0.001,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.crop_s": 4.0
+    }
+   }
+  }
+ ]
+}

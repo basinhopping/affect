@@ -1,0 +1,138 @@
+{
+ "sweep_id": "cnn_augment_1",
+ "description": "Speed perturbation (none; 0.9, 1.0, 1.1 as in Aldeneh 2017 and Latif 2019), mixup (none; alpha 0.2; alpha 0.4) and the evaluation policy (whole utterances; 10 s segments every 5 s, averaged; 5 s segments every 2.5 s, averaged), every combination, on cnn_final_1 (which already has mild SpecAugment). The literature review found speed perturbation to be the only augmentation with measured gains on IEMOCAP CNNs, and several papers average segment posteriors at test time. 5 seeds, session-out folds. Priority 94. Validation only.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "max",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0003,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 94,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "grid",
+   "kind": "grid",
+   "priority": 94,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "factors": {
+    "augment.speed_factors": [
+     [
+      1.0
+     ],
+     [
+      0.9,
+      1.0,
+      1.1
+     ]
+    ],
+    "augment.mixup_alpha": [
+     0.0,
+     0.2,
+     0.4
+    ],
+    "evaluation": [
+     {
+      "train.eval_segment_s": null,
+      "train.eval_segment_hop_s": null
+     },
+     {
+      "train.eval_segment_s": 10.0,
+      "train.eval_segment_hop_s": 5.0
+     },
+     {
+      "train.eval_segment_s": 5.0,
+      "train.eval_segment_hop_s": 2.5
+     }
+    ]
+   }
+  }
+ ]
+}

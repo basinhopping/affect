@@ -1,0 +1,488 @@
+{
+ "sweep_id": "cnn_transformer_confirm_1",
+ "description": "Confirmation of the CNN + Transformer (model family 2), plan 3.4 and rule 7 of the protocols page: the 19 configurations with the highest mean validation UA over seeds 1 to 3 among the 260 complete configurations of cnn_transformer_screen_1 and cnn_transformer_screen_2 (18 of them from screen 2), after leaving out 4 configurations whose screen runs repeat another configuration's validation predictions exactly (RULE.txt, amendment), plus the screens' base, on seeds 6 to 10, which no screen used, and the five session-out folds. 20 configurations and 500 jobs, the size of cnn_confirm_2. Rule fixed on 2026-09-29 before any screen-2 result existed (artifacts/analyses/night6_prep_20260929/RULE.txt). The finalists are the top 3 by validation UA here, recorded before any test file is read; the CNN rows of the comparison are cnn_confirm_2's runs on the same seeds and folds. Priority 100. Validation only.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn_transformer",
+   "channels": [
+    32,
+    64,
+    128
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "freq_reduce": "mean",
+   "d_model": 128,
+   "n_heads": 4,
+   "n_layers": 2,
+   "ff_dim": 256,
+   "transformer_dropout": 0.1,
+   "transformer_activation": "gelu",
+   "norm_first": true,
+   "positional": "sinusoidal",
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0003,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  {
+   "name": "candidates",
+   "kind": "variants",
+   "priority": 100,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "variants": {
+    "rank 1: screen_2 random random 33 (48b075a11a45)": {
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.d_model": 32,
+     "model.dropout": 0.2,
+     "model.ff_dim": 512,
+     "model.freq_reduce": "flatten",
+     "model.n_heads": 2,
+     "model.n_layers": 1,
+     "train.batch_size": 32,
+     "train.class_balance": "none",
+     "train.crop_s": 5.0,
+     "train.lr": 0.0005,
+     "train.warmup_epochs": 5,
+     "train.weight_decay": 0.001
+    },
+    "rank 2: screen_2 finalist_front_end cnn_final_2 front end, mean frequencies, d_model 64, 2 layers (b00b12358117)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "features.n_mels": 48,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.d_model": 64,
+     "model.pooling": "stats",
+     "train.crop_s": 4.0,
+     "train.lr": 0.001,
+     "train.schedule": "constant",
+     "train.warmup_epochs": 5,
+     "train.weight_decay": 0.001
+    },
+    "rank 3: screen_2 random random 14 (6d340791cc07)": {
+     "features.n_mels": 48,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 1,
+     "model.positional": "none",
+     "model.transformer_dropout": 0.2,
+     "train.crop_s": 5.0,
+     "train.lr": 0.0005
+    },
+    "rank 4: screen_2 random random 24 (8879f02e6dd1)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.d_model": 64,
+     "model.ff_dim": 512,
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 1,
+     "model.pooling": "stats",
+     "train.batch_size": 32,
+     "train.class_balance": "none",
+     "train.lr": 0.0001
+    },
+    "rank 5: screen_2 random random 17 (39469c3bd46c)": {
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.d_model": 32,
+     "model.dropout": 0.2,
+     "model.ff_dim": 512,
+     "model.freq_reduce": "flatten",
+     "model.n_heads": 2,
+     "model.n_layers": 3,
+     "train.batch_size": 32,
+     "train.crop_s": 5.0,
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.001
+    },
+    "rank 6: screen_2 random random 60 (921f9170b17b)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "features.n_mels": 48,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.d_model": 32,
+     "model.dropout": 0.2,
+     "model.ff_dim": 512,
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 3,
+     "model.pooling": "stats",
+     "model.transformer_dropout": 0.2,
+     "train.class_balance": "none",
+     "train.crop_s": 5.0
+    },
+    "rank 7: screen_2 random random 5 (31f6bc81c27f)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "features.n_mels": 48,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.d_model": 32,
+     "model.dropout": 0.2,
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 1,
+     "model.positional": "none",
+     "model.transformer_dropout": 0.2,
+     "train.batch_size": 32,
+     "train.crop_s": 5.0,
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.001
+    },
+    "rank 8: screen_2 random random 13 (845460fd3799)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.d_model": 32,
+     "model.dropout": 0.2,
+     "model.ff_dim": 512,
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 1,
+     "model.pooling": "stats",
+     "model.transformer_dropout": 0.2,
+     "train.batch_size": 32,
+     "train.crop_s": 5.0,
+     "train.lr": 0.0005
+    },
+    "rank 9: screen_2 random random 28 (5bfaf0cd0b5d)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "features.n_mels": 48,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.ff_dim": 128,
+     "model.freq_reduce": "flatten",
+     "model.n_heads": 2,
+     "model.n_layers": 1,
+     "model.positional": "none",
+     "model.transformer_dropout": 0.2,
+     "train.class_balance": "none",
+     "train.crop_s": 5.0,
+     "train.lr": 0.0005,
+     "train.warmup_epochs": 5,
+     "train.weight_decay": 0.001
+    },
+    "rank 10: screen_2 random random 27 (3013fda3e37b)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.d_model": 32,
+     "model.dropout": 0.2,
+     "model.ff_dim": 512,
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 3,
+     "model.positional": "none",
+     "model.transformer_dropout": 0.2,
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.001
+    },
+    "rank 11: screen_2 random random 56 (6da4272388db)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.ff_dim": 128,
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 1,
+     "model.pooling": "stats",
+     "model.positional": "none",
+     "model.transformer_dropout": 0.2,
+     "train.crop_s": 7.5,
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.001
+    },
+    "rank 12: screen_2 random random 8 (b98784bf0241)": {
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.d_model": 64,
+     "model.dropout": 0.2,
+     "model.ff_dim": 512,
+     "model.freq_reduce": "flatten",
+     "model.n_heads": 2,
+     "model.pooling": "attention",
+     "model.positional": "none",
+     "train.crop_s": 5.0
+    },
+    "rank 13: screen_2 finalist_front_end cnn_final_2 front end, flatten frequencies, d_model 64, 1 layer (4e4942b88e32)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "features.n_mels": 48,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.d_model": 64,
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 1,
+     "model.pooling": "stats",
+     "train.crop_s": 4.0,
+     "train.lr": 0.001,
+     "train.schedule": "constant",
+     "train.warmup_epochs": 5,
+     "train.weight_decay": 0.001
+    },
+    "rank 14: screen_2 random random 35 (9d8c6304702a)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "features.n_mels": 48,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.d_model": 32,
+     "model.dropout": 0.2,
+     "model.ff_dim": 128,
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 3,
+     "model.positional": "none",
+     "train.batch_size": 32,
+     "train.class_balance": "none",
+     "train.crop_s": 7.5,
+     "train.lr": 0.0005,
+     "train.warmup_epochs": 5
+    },
+    "rank 15: screen_2 random random 31 (66c999ead794)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "features.n_mels": 48,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256
+     ],
+     "model.d_model": 64,
+     "model.dropout": 0.2,
+     "model.ff_dim": 512,
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 1,
+     "model.pooling": "stats",
+     "model.positional": "none",
+     "model.transformer_dropout": 0.2,
+     "train.batch_size": 32,
+     "train.crop_s": 5.0,
+     "train.lr": 0.0005
+    },
+    "rank 16: screen_2 random random 29 (c975a82222cf)": {
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.d_model": 32,
+     "model.dropout": 0.2,
+     "model.freq_reduce": "flatten",
+     "model.n_heads": 2,
+     "model.n_layers": 1,
+     "model.pooling": "stats",
+     "model.positional": "none",
+     "model.transformer_dropout": 0.2,
+     "train.class_balance": "none",
+     "train.crop_s": 7.5,
+     "train.lr": 0.0001
+    },
+    "rank 17: screen_2 random random 52 (a79bec6d68d3)": {
+     "features.n_mels": 48,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.dropout": 0.2,
+     "model.ff_dim": 128,
+     "model.freq_reduce": "flatten",
+     "model.transformer_dropout": 0.2,
+     "train.batch_size": 32,
+     "train.lr": 0.0001,
+     "train.weight_decay": 0.001
+    },
+    "rank 18: screen_2 random random 18 (47ce7034379e)": {
+     "augment.freq_mask_width": 12,
+     "augment.time_mask_width": 30,
+     "features.n_mels": 48,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.d_model": 32,
+     "model.ff_dim": 512,
+     "model.freq_reduce": "flatten",
+     "model.n_layers": 1,
+     "model.pooling": "stats",
+     "model.positional": "none",
+     "train.lr": 0.0001,
+     "train.weight_decay": 0.001
+    },
+    "rank 19: screen_1 random_extra random 44 (76223d99dad7)": {
+     "model.channels": [
+      32,
+      64,
+      128,
+      256
+     ],
+     "model.d_model": 64,
+     "model.dropout": 0.2,
+     "model.freq_reduce": "flatten",
+     "model.n_heads": 2,
+     "model.n_layers": 1,
+     "model.transformer_dropout": 0.3,
+     "train.batch_size": 32,
+     "train.lr": 0.0001,
+     "train.weight_decay": 0.01
+    }
+   }
+  }
+ ]
+}

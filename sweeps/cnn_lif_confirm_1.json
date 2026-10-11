@@ -1,0 +1,339 @@
+{
+ "sweep_id": "cnn_lif_confirm_1",
+ "description": "Confirmation of the CNN + LIF hybrid (model family 3a) (RULE_night9_tests.txt, 'Confirmations', fixed on 2026-10-09 at 03:20 UTC before any file of the screen had left the node): the 9 configurations with the highest mean validation UA over seeds 1 to 3 among the 132 distinct complete configurations of cnn_lif_screen_1, plus the screen's base, on seeds 6 to 10, which no screen used, and the five session-out folds, with train.eval_train every_epoch (added to the screen's settings; it changes nothing else in a run). 10 configurations and 250 jobs. The finalist, lif_final, is the configuration with the highest mean validation UA over seeds 6 to 10, recorded before any test file is read. Priority 105. Validation only.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn_lif",
+   "channels": [
+    32,
+    64,
+    128
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "freq_reduce": "mean",
+   "time_pool": 1,
+   "lif_hidden": [
+    128
+   ],
+   "recurrent": false,
+   "lif_norm": "none",
+   "lif_dropout": 0.1,
+   "beta": 0.9,
+   "learn_beta": "layer",
+   "threshold": 1.0,
+   "reset": "subtract",
+   "detach_reset": true,
+   "surrogate": "atan",
+   "surrogate_slope": 2.0,
+   "readout_beta": 0.9,
+   "rate_weight": 0.0,
+   "rate_target": 0.1,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0003,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch"
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 105,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  {
+   "name": "candidates",
+   "kind": "variants",
+   "priority": 105,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "variants": {
+    "rank 1: cnn_lif_screen_1 random random 27 (d2fc98201be5)": {
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.detach_reset": false,
+     "model.freq_reduce": "flatten",
+     "model.learn_beta": "none",
+     "model.lif_hidden": [
+      256,
+      128
+     ],
+     "model.lif_norm": "batch",
+     "model.rate_target": 0.2,
+     "model.rate_weight": 1.0,
+     "model.readout_beta": 0.5,
+     "model.threshold": 2.0,
+     "model.time_pool": 4,
+     "train.crop_s": 5.0,
+     "train.lr": 0.001,
+     "train.weight_decay": 0.01
+    },
+    "rank 2: cnn_lif_screen_1 random random 56 (d923247af2a5)": {
+     "model.beta": 0.95,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.detach_reset": false,
+     "model.freq_reduce": "flatten",
+     "model.learn_beta": "neuron",
+     "model.lif_dropout": 0.3,
+     "model.lif_hidden": [
+      256
+     ],
+     "model.rate_target": 0.2,
+     "model.rate_weight": 1.0,
+     "model.readout_beta": 0.5,
+     "model.threshold": 2.0,
+     "train.batch_size": 32
+    },
+    "rank 3: cnn_lif_screen_1 random random 78 (ddfbce8ea2bf)": {
+     "model.beta": 0.8,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256
+     ],
+     "model.freq_reduce": "flatten",
+     "model.lif_dropout": 0.0,
+     "model.rate_target": 0.05,
+     "model.rate_weight": 1.0,
+     "model.readout_beta": 0.5,
+     "model.surrogate_slope": 5.0,
+     "model.threshold": 0.5,
+     "model.time_pool": 2,
+     "train.batch_size": 32,
+     "train.weight_decay": 0.01
+    },
+    "rank 4: cnn_lif_screen_1 random random 50 (f4dff93b5cfb)": {
+     "model.beta": 0.8,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.freq_reduce": "flatten",
+     "model.lif_norm": "batch",
+     "model.rate_target": 0.2,
+     "model.rate_weight": 1.0,
+     "model.reset": "zero",
+     "model.surrogate": "sigmoid",
+     "model.surrogate_slope": 5.0,
+     "model.threshold": 2.0,
+     "train.batch_size": 32,
+     "train.crop_s": 5.0,
+     "train.lr": 0.001,
+     "train.weight_decay": 0.01
+    },
+    "rank 5: cnn_lif_screen_1 random random 12 (ea8d21e64054)": {
+     "model.beta": 0.8,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256
+     ],
+     "model.detach_reset": false,
+     "model.learn_beta": "none",
+     "model.lif_dropout": 0.3,
+     "model.lif_hidden": [
+      256
+     ],
+     "model.lif_norm": "layer",
+     "model.rate_target": 0.2,
+     "model.rate_weight": 1.0,
+     "model.readout_beta": 0.5,
+     "model.reset": "zero",
+     "model.surrogate": "boxcar",
+     "model.surrogate_slope": 1.0,
+     "model.threshold": 0.5,
+     "model.time_pool": 4,
+     "train.crop_s": 5.0,
+     "train.lr": 0.001
+    },
+    "rank 6: cnn_lif_screen_1 random random 36 (50fcd86f29a2)": {
+     "model.beta": 0.95,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.dropout": 0.2,
+     "model.freq_reduce": "flatten",
+     "model.learn_beta": "neuron",
+     "model.lif_dropout": 0.0,
+     "model.lif_hidden": [
+      256,
+      128
+     ],
+     "model.lif_norm": "layer",
+     "model.readout_beta": 0.0,
+     "model.recurrent": true,
+     "model.reset": "zero",
+     "model.surrogate": "boxcar",
+     "model.surrogate_slope": 1.0,
+     "model.threshold": 2.0,
+     "model.time_pool": 2,
+     "train.crop_s": 5.0,
+     "train.lr": 0.001,
+     "train.weight_decay": 0.01
+    },
+    "rank 7: cnn_lif_screen_1 random random 49 (315853681d56)": {
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.detach_reset": false,
+     "model.dropout": 0.5,
+     "model.freq_reduce": "flatten",
+     "model.lif_dropout": 0.3,
+     "model.lif_hidden": [
+      256,
+      128
+     ],
+     "model.rate_target": 0.05,
+     "model.rate_weight": 1.0,
+     "model.readout_beta": 0.5,
+     "model.threshold": 2.0,
+     "train.batch_size": 32
+    },
+    "rank 8: cnn_lif_screen_1 random random 60 (a189a5508a78)": {
+     "model.beta": 0.8,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256
+     ],
+     "model.dropout": 0.5,
+     "model.freq_reduce": "flatten",
+     "model.learn_beta": "none",
+     "model.lif_dropout": 0.0,
+     "model.lif_hidden": [
+      256,
+      256,
+      128
+     ],
+     "model.lif_norm": "batch",
+     "model.rate_target": 0.05,
+     "model.rate_weight": 1.0,
+     "model.readout_beta": 0.5,
+     "model.recurrent": true,
+     "model.surrogate": "boxcar",
+     "model.surrogate_slope": 1.0,
+     "model.threshold": 0.5,
+     "train.crop_s": 5.0,
+     "train.weight_decay": 0.01
+    },
+    "rank 9: cnn_lif_screen_1 random random 65 (25fd94832fbc)": {
+     "model.beta": 0.95,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.detach_reset": false,
+     "model.dropout": 0.5,
+     "model.learn_beta": "none",
+     "model.lif_dropout": 0.0,
+     "model.rate_target": 0.05,
+     "model.rate_weight": 1.0,
+     "model.readout_beta": 0.5,
+     "model.reset": "zero",
+     "model.surrogate_slope": 5.0,
+     "model.threshold": 0.5,
+     "model.time_pool": 4,
+     "train.batch_size": 32,
+     "train.lr": 0.0001,
+     "train.weight_decay": 0.01
+    }
+   }
+  }
+ ]
+}

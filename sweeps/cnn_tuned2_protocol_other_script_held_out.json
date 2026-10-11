@@ -1,0 +1,199 @@
+{
+ "sweep_id": "cnn_tuned2_protocol_other_script_held_out",
+ "description": "The script-held-out comparison (leave_one_session_out_other_script_held_out) on its 14 folds with a sad utterance in the test set; test_S5_script03 is left out because its test set holds none, so UA is undefined there (every run of that fold failed on night 4). Five rows, all frozen before this run: the baseline (cf0495a2 settings, the base) and cnn_final_1, whose runs on these folds repeat night 4's cnn_protocol_other_script_held_out exactly, and the three night-3 finalists (rule 2). Seeds 1 to 5. Priority 72. Validation only until a selection record exists.",
+ "folds": [
+  "test_S1_script01",
+  "test_S1_script02",
+  "test_S1_script03",
+  "test_S2_script01",
+  "test_S2_script02",
+  "test_S2_script03",
+  "test_S3_script01",
+  "test_S3_script02",
+  "test_S3_script03",
+  "test_S4_script01",
+  "test_S4_script02",
+  "test_S4_script03",
+  "test_S5_script01",
+  "test_S5_script02"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out_other_script_held_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 72,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "frozen",
+   "kind": "variants",
+   "priority": 72,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "variants": {
+    "cnn_final_1 (9e0cfdfd7f40)": {
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.pooling": "max",
+     "train.batch_size": 16,
+     "train.lr": 0.0003,
+     "train.crop_s": 10.0,
+     "train.class_balance": "weighted_loss",
+     "train.label_smoothing": 0.1
+    },
+    "cnn_final_2 (3d73145068ba)": {
+     "features.n_mels": 48,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 12,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.pooling": "stats",
+     "train.batch_size": 16,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 4.0,
+     "train.class_balance": "weighted_loss",
+     "train.label_smoothing": 0.1
+    },
+    "cnn_final_2b (22d4a4c3cb5d)": {
+     "features.n_mels": 48,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 12,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.pooling": "stats",
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.2,
+     "train.batch_size": 16,
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.early_stopping_patience": 20,
+     "train.label_smoothing": 0.1
+    },
+    "cnn_final_2c (5285fd70bae6)": {
+     "features.n_mels": 32,
+     "features.normalization": "speaker",
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.pooling": "stats",
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.4,
+     "train.epochs": 100,
+     "train.weight_decay": 0.003,
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 7.5,
+     "train.class_balance": "weighted_loss",
+     "train.label_smoothing": 0.1
+    }
+   }
+  }
+ ]
+}

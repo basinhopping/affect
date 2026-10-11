@@ -1,0 +1,95 @@
+{
+ "sweep_id": "cnn_3block_classes_fru4_pooled",
+ "description": "Dr. Luitel's requests of 2026-10-02: her 3-block CNN (the baseline's settings with model.channels [32, 64, 128]) under label set four_with_frustration_no_neutral (fru4), pooled random folds (utterance_5fold), seeds 1 to 5. Happy and excited stay merged and frustration is added (fru5, fru4), with and without neutral; no_neu3 drops neutral without adding frustration. Priority 145, above the LIF screens. train.eval_train every_epoch records the training UA, WA, macro-F1 and mean NLL after every epoch. Nothing is chosen from these runs; validation only until a selection record or a rule file names the test reads.",
+ "folds": [
+  "test_G1",
+  "test_G2",
+  "test_G3",
+  "test_G4",
+  "test_G5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_with_frustration_no_neutral",
+   "subset": "all",
+   "split": "utterance_5fold"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch"
+  }
+ },
+ "stages": [
+  {
+   "name": "3block",
+   "kind": "base",
+   "priority": 145,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  }
+ ]
+}

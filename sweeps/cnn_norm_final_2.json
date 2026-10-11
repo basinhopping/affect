@@ -1,0 +1,152 @@
+{
+ "sweep_id": "cnn_norm_final_2",
+ "description": "The normalization layer after every convolution, and the activation, each changed alone from cnn_final_2 (3d73145068ba; batch norm and ReLU), as cnn_norm_final_1 did for cnn_final_1: sub-spectral batch norm with 2 bands, group norm with 8 groups or 1 group (layer norm), no normalization; leaky ReLU, ELU, GELU, SiLU. Sub-spectral norm with 4 bands is left out because it cannot run here: with 48 mel bands and five blocks, the fifth block sees 3 frequency bands (the settings check refuses it). 5 seeds, session-out folds; seeds 1 to 3 of the base repeat cnn_screen_2's runs of random 80. Priority 99. Validation only.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 48,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 12,
+   "time_masks": 2,
+   "time_mask_width": 30,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256,
+    512
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "stats",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.001,
+   "warmup_epochs": 5,
+   "schedule": "constant",
+   "early_stopping_patience": 20,
+   "crop_s": 4.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 99,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "norm",
+   "kind": "one_factor_at_a_time",
+   "priority": 99,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "factors": {
+    "normalization layer": [
+     {
+      "model.norm": "subspectral",
+      "model.norm_groups": null,
+      "model.norm_subbands": 2
+     },
+     {
+      "model.norm": "group",
+      "model.norm_groups": 8,
+      "model.norm_subbands": null
+     },
+     {
+      "model.norm": "group",
+      "model.norm_groups": 1,
+      "model.norm_subbands": null
+     },
+     {
+      "model.norm": "none",
+      "model.norm_groups": null,
+      "model.norm_subbands": null
+     }
+    ]
+   }
+  },
+  {
+   "name": "activation",
+   "kind": "one_factor_at_a_time",
+   "priority": 99,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "factors": {
+    "model.activation": [
+     "leaky_relu",
+     "elu",
+     "gelu",
+     "silu"
+    ]
+   }
+  }
+ ]
+}

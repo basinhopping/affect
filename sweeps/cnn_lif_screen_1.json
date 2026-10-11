@@ -1,0 +1,580 @@
+{
+ "sweep_id": "cnn_lif_screen_1",
+ "description": "First screen of the CNN + LIF hybrid (model family 3a, plan 4.4): the CNN's front end (three blocks at the base), its frames averaged over frequency (or flattened) and optionally over groups of steps, then 1 to 3 layers of LIF neurons (affect.models.lif, checked against a numpy reference) and a leaky-integrator readout. Training settings of the CNN + Transformer's base (cnn_final_1's). Neurons start from the literature review, section 10: leak 0.9, learned per layer; threshold 1; reset by subtraction; arctan surrogate, slope 2; no activity penalty. Stages: the base on 5 seeds (seed noise); shuffled training labels on 2 seeds (the leak test, UA near 0.25); each listed level alone from the base, 3 seeds; random configurations over every factor, 3 seeds; random_extra, more of the same draw as filler. Validation only.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn_lif",
+   "channels": [
+    32,
+    64,
+    128
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "freq_reduce": "mean",
+   "time_pool": 1,
+   "lif_hidden": [
+    128
+   ],
+   "recurrent": false,
+   "lif_norm": "none",
+   "lif_dropout": 0.1,
+   "beta": 0.9,
+   "learn_beta": "layer",
+   "threshold": 1.0,
+   "reset": "subtract",
+   "detach_reset": true,
+   "surrogate": "atan",
+   "surrogate_slope": 2.0,
+   "readout_beta": 0.9,
+   "rate_weight": 0.0,
+   "rate_target": 0.1,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0003,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 70,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "controls",
+   "kind": "variants",
+   "priority": 70,
+   "seeds": [
+    1,
+    2
+   ],
+   "variants": {
+    "shuffled training labels": {
+     "train.control": "shuffle_train_labels"
+    }
+   }
+  },
+  {
+   "name": "one_factor",
+   "kind": "one_factor_at_a_time",
+   "priority": 65,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.channels": [
+     [
+      32,
+      64,
+      128,
+      256
+     ],
+     [
+      32,
+      64,
+      128,
+      256,
+      512
+     ]
+    ],
+    "model.freq_reduce": [
+     "flatten"
+    ],
+    "model.time_pool": [
+     2,
+     4
+    ],
+    "model.lif_hidden": [
+     [
+      256
+     ],
+     [
+      128,
+      128
+     ],
+     [
+      256,
+      128,
+      64
+     ]
+    ],
+    "model.recurrent": [
+     true
+    ],
+    "model.lif_norm": [
+     "batch",
+     "layer"
+    ],
+    "model.beta": [
+     0.8,
+     0.95
+    ],
+    "model.learn_beta": [
+     "none",
+     "neuron"
+    ],
+    "model.threshold": [
+     0.5,
+     2.0
+    ],
+    "model.reset": [
+     "zero"
+    ],
+    "model.detach_reset": [
+     false
+    ],
+    "surrogate": [
+     {
+      "model.surrogate": "atan",
+      "model.surrogate_slope": 5.0
+     },
+     {
+      "model.surrogate": "fast_sigmoid",
+      "model.surrogate_slope": 25.0
+     },
+     {
+      "model.surrogate": "sigmoid",
+      "model.surrogate_slope": 5.0
+     },
+     {
+      "model.surrogate": "boxcar",
+      "model.surrogate_slope": 1.0
+     }
+    ],
+    "model.readout_beta": [
+     0.0,
+     0.5,
+     0.97
+    ],
+    "activity": [
+     {
+      "model.rate_weight": 1.0,
+      "model.rate_target": 0.05
+     },
+     {
+      "model.rate_weight": 1.0,
+      "model.rate_target": 0.2
+     }
+    ],
+    "model.lif_dropout": [
+     0.0,
+     0.3
+    ],
+    "train.lr": [
+     0.0001,
+     0.001
+    ]
+   }
+  },
+  {
+   "name": "random",
+   "kind": "random",
+   "priority": 60,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "n_configs": 100,
+   "sampling_seed": 20261001,
+   "space": {
+    "model.channels": [
+     [
+      32,
+      64,
+      128
+     ],
+     [
+      32,
+      64,
+      128,
+      256
+     ],
+     [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     [
+      48,
+      96,
+      192,
+      384
+     ]
+    ],
+    "model.freq_reduce": [
+     "mean",
+     "flatten"
+    ],
+    "model.time_pool": [
+     1,
+     2,
+     4
+    ],
+    "model.lif_hidden": [
+     [
+      128
+     ],
+     [
+      256
+     ],
+     [
+      128,
+      128
+     ],
+     [
+      256,
+      128
+     ],
+     [
+      256,
+      256,
+      128
+     ]
+    ],
+    "model.recurrent": [
+     false,
+     true
+    ],
+    "model.lif_norm": [
+     "none",
+     "batch",
+     "layer"
+    ],
+    "model.beta": [
+     0.8,
+     0.9,
+     0.95
+    ],
+    "model.learn_beta": [
+     "none",
+     "layer",
+     "neuron"
+    ],
+    "model.threshold": [
+     0.5,
+     1.0,
+     2.0
+    ],
+    "model.reset": [
+     "subtract",
+     "zero"
+    ],
+    "model.detach_reset": [
+     true,
+     false
+    ],
+    "surrogate": [
+     {
+      "model.surrogate": "atan",
+      "model.surrogate_slope": 2.0
+     },
+     {
+      "model.surrogate": "atan",
+      "model.surrogate_slope": 5.0
+     },
+     {
+      "model.surrogate": "fast_sigmoid",
+      "model.surrogate_slope": 25.0
+     },
+     {
+      "model.surrogate": "sigmoid",
+      "model.surrogate_slope": 5.0
+     },
+     {
+      "model.surrogate": "boxcar",
+      "model.surrogate_slope": 1.0
+     }
+    ],
+    "model.readout_beta": [
+     0.0,
+     0.5,
+     0.9,
+     0.97
+    ],
+    "activity": [
+     {
+      "model.rate_weight": 0.0,
+      "model.rate_target": 0.1
+     },
+     {
+      "model.rate_weight": 1.0,
+      "model.rate_target": 0.05
+     },
+     {
+      "model.rate_weight": 1.0,
+      "model.rate_target": 0.2
+     }
+    ],
+    "model.lif_dropout": [
+     0.0,
+     0.1,
+     0.3
+    ],
+    "model.dropout": [
+     0.2,
+     0.3,
+     0.5
+    ],
+    "train.lr": [
+     0.0001,
+     0.0003,
+     0.001
+    ],
+    "train.weight_decay": [
+     0.0001,
+     0.01
+    ],
+    "train.batch_size": [
+     16,
+     32
+    ],
+    "train.crop_s": [
+     5.0,
+     10.0
+    ]
+   }
+  },
+  {
+   "name": "random_extra",
+   "kind": "random",
+   "priority": 25,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "n_configs": 100,
+   "sampling_seed": 20261001,
+   "space": {
+    "model.channels": [
+     [
+      32,
+      64,
+      128
+     ],
+     [
+      32,
+      64,
+      128,
+      256
+     ],
+     [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     [
+      48,
+      96,
+      192,
+      384
+     ]
+    ],
+    "model.freq_reduce": [
+     "mean",
+     "flatten"
+    ],
+    "model.time_pool": [
+     1,
+     2,
+     4
+    ],
+    "model.lif_hidden": [
+     [
+      128
+     ],
+     [
+      256
+     ],
+     [
+      128,
+      128
+     ],
+     [
+      256,
+      128
+     ],
+     [
+      256,
+      256,
+      128
+     ]
+    ],
+    "model.recurrent": [
+     false,
+     true
+    ],
+    "model.lif_norm": [
+     "none",
+     "batch",
+     "layer"
+    ],
+    "model.beta": [
+     0.8,
+     0.9,
+     0.95
+    ],
+    "model.learn_beta": [
+     "none",
+     "layer",
+     "neuron"
+    ],
+    "model.threshold": [
+     0.5,
+     1.0,
+     2.0
+    ],
+    "model.reset": [
+     "subtract",
+     "zero"
+    ],
+    "model.detach_reset": [
+     true,
+     false
+    ],
+    "surrogate": [
+     {
+      "model.surrogate": "atan",
+      "model.surrogate_slope": 2.0
+     },
+     {
+      "model.surrogate": "atan",
+      "model.surrogate_slope": 5.0
+     },
+     {
+      "model.surrogate": "fast_sigmoid",
+      "model.surrogate_slope": 25.0
+     },
+     {
+      "model.surrogate": "sigmoid",
+      "model.surrogate_slope": 5.0
+     },
+     {
+      "model.surrogate": "boxcar",
+      "model.surrogate_slope": 1.0
+     }
+    ],
+    "model.readout_beta": [
+     0.0,
+     0.5,
+     0.9,
+     0.97
+    ],
+    "activity": [
+     {
+      "model.rate_weight": 0.0,
+      "model.rate_target": 0.1
+     },
+     {
+      "model.rate_weight": 1.0,
+      "model.rate_target": 0.05
+     },
+     {
+      "model.rate_weight": 1.0,
+      "model.rate_target": 0.2
+     }
+    ],
+    "model.lif_dropout": [
+     0.0,
+     0.1,
+     0.3
+    ],
+    "model.dropout": [
+     0.2,
+     0.3,
+     0.5
+    ],
+    "train.lr": [
+     0.0001,
+     0.0003,
+     0.001
+    ],
+    "train.weight_decay": [
+     0.0001,
+     0.01
+    ],
+    "train.batch_size": [
+     16,
+     32
+    ],
+    "train.crop_s": [
+     5.0,
+     10.0
+    ]
+   }
+  }
+ ]
+}

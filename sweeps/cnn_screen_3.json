@@ -1,0 +1,359 @@
+{
+ "sweep_id": "cnn_screen_3",
+ "description": "Third CNN screening, 3 seeds per configuration, in the region that won cnn_screen_2: SpecAugment always on (mild, medium or strong), early-stopping patience 20 or 30, per-utterance or per-speaker normalization (global dropped). New levels: 10 s crops, a wider 5-block model (48 to 768 channels), 5x5 kernels, max pooling, soft labels, dropout 0.5, learning rate 0.0003. Stage random (200 configurations, priority 50) is the planned screen; stage random_extra (200 more, priority 20) repeats the same sampling seed and space, skips the first 200 draws and continues, as a filler that may not finish. Validation only.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 60,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "random",
+   "kind": "random",
+   "priority": 50,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "n_configs": 200,
+   "sampling_seed": 20260928,
+   "space": {
+    "features.n_mels": [
+     32,
+     40,
+     48,
+     64
+    ],
+    "features.normalization": [
+     "utterance",
+     "speaker"
+    ],
+    "train.crop_s": [
+     5.0,
+     7.5,
+     10.0
+    ],
+    "specaugment": [
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 8,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 20
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 12,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 30
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 15,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 40
+     }
+    ],
+    "train.class_balance": [
+     "none",
+     "weighted_loss"
+    ],
+    "train.label_smoothing": [
+     0.0,
+     0.1
+    ],
+    "train.labels": [
+     "hard",
+     "soft"
+    ],
+    "model.channels": [
+     [
+      32,
+      64,
+      128,
+      256
+     ],
+     [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     [
+      48,
+      96,
+      192,
+      384
+     ],
+     [
+      48,
+      96,
+      192,
+      384,
+      768
+     ]
+    ],
+    "model.kernel_size": [
+     3,
+     5
+    ],
+    "model.pooling": [
+     "mean",
+     "stats",
+     "max"
+    ],
+    "model.classifier_hidden": [
+     null,
+     128
+    ],
+    "model.dropout": [
+     0.2,
+     0.3,
+     0.4,
+     0.5
+    ],
+    "train.lr": [
+     0.0003,
+     0.0005,
+     0.001,
+     0.002
+    ],
+    "train.weight_decay": [
+     0.0001,
+     0.001,
+     0.003
+    ],
+    "train.batch_size": [
+     16,
+     32
+    ],
+    "train.schedule": [
+     "cosine",
+     "constant"
+    ],
+    "train.warmup_epochs": [
+     2,
+     5
+    ],
+    "train.early_stopping_patience": [
+     20,
+     30
+    ],
+    "train.epochs": [
+     60,
+     100
+    ]
+   }
+  },
+  {
+   "name": "random_extra",
+   "kind": "random",
+   "priority": 20,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "n_configs": 200,
+   "sampling_seed": 20260928,
+   "space": {
+    "features.n_mels": [
+     32,
+     40,
+     48,
+     64
+    ],
+    "features.normalization": [
+     "utterance",
+     "speaker"
+    ],
+    "train.crop_s": [
+     5.0,
+     7.5,
+     10.0
+    ],
+    "specaugment": [
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 8,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 20
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 12,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 30
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 15,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 40
+     }
+    ],
+    "train.class_balance": [
+     "none",
+     "weighted_loss"
+    ],
+    "train.label_smoothing": [
+     0.0,
+     0.1
+    ],
+    "train.labels": [
+     "hard",
+     "soft"
+    ],
+    "model.channels": [
+     [
+      32,
+      64,
+      128,
+      256
+     ],
+     [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     [
+      48,
+      96,
+      192,
+      384
+     ],
+     [
+      48,
+      96,
+      192,
+      384,
+      768
+     ]
+    ],
+    "model.kernel_size": [
+     3,
+     5
+    ],
+    "model.pooling": [
+     "mean",
+     "stats",
+     "max"
+    ],
+    "model.classifier_hidden": [
+     null,
+     128
+    ],
+    "model.dropout": [
+     0.2,
+     0.3,
+     0.4,
+     0.5
+    ],
+    "train.lr": [
+     0.0003,
+     0.0005,
+     0.001,
+     0.002
+    ],
+    "train.weight_decay": [
+     0.0001,
+     0.001,
+     0.003
+    ],
+    "train.batch_size": [
+     16,
+     32
+    ],
+    "train.schedule": [
+     "cosine",
+     "constant"
+    ],
+    "train.warmup_epochs": [
+     2,
+     5
+    ],
+    "train.early_stopping_patience": [
+     20,
+     30
+    ],
+    "train.epochs": [
+     60,
+     100
+    ]
+   }
+  }
+ ]
+}

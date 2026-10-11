@@ -1,0 +1,428 @@
+{
+ "sweep_id": "cnn_3block_confirm_1",
+ "description": "Confirmation of Dr. Luitel's 3-block CNN (channels 32, 64, 128, lr 0.001) and the sweep around it (RULE_night9_tests.txt, 'Confirmations', fixed on 2026-10-09 at 03:20 UTC before any file of the screen had left the node): the 19 configurations with the highest mean validation UA over seeds 1 to 3 among the 129 distinct complete configurations of cnn_3block_screen_1, plus the screen's base, on seeds 6 to 10, which no screen used, and the five session-out folds, with train.eval_train every_epoch. 20 configurations and 500 jobs. The finalist, threeblock_final, is the configuration with the highest mean validation UA over seeds 6 to 10, recorded before any test file is read. Priority 110. Validation only.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch"
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 110,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  {
+   "name": "candidates",
+   "kind": "variants",
+   "priority": 110,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "variants": {
+    "rank 1: cnn_3block_screen_1 random random 88 (e0c211fcced3)": {
+     "augment.freq_mask_width": 12,
+     "augment.freq_masks": 2,
+     "augment.time_mask_width": 30,
+     "augment.time_masks": 2,
+     "features.n_mels": 40,
+     "model.channels": [
+      64,
+      128,
+      256
+     ],
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.2,
+     "model.kernel_size": 5,
+     "model.pooling": "stats",
+     "train.batch_size": 16,
+     "train.crop_s": 10.0,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100
+    },
+    "rank 2: cnn_3block_screen_1 random random 72 (b518326794b9)": {
+     "augment.freq_mask_width": 8,
+     "augment.freq_masks": 2,
+     "augment.time_mask_width": 20,
+     "augment.time_masks": 2,
+     "features.n_mels": 40,
+     "model.channels": [
+      64,
+      128,
+      256
+     ],
+     "model.convs_per_block": 2,
+     "model.dropout": 0.5,
+     "model.kernel_size": 5,
+     "model.pooling": "stats",
+     "train.crop_s": 10.0,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.labels": "soft",
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.01
+    },
+    "rank 3: cnn_3block_screen_1 random random 60 (aba1c4133544)": {
+     "augment.freq_mask_width": 8,
+     "augment.freq_masks": 2,
+     "augment.time_mask_width": 20,
+     "augment.time_masks": 2,
+     "features.n_mels": 40,
+     "model.channels": [
+      64,
+      128,
+      256
+     ],
+     "model.kernel_size": 5,
+     "model.pooling": "stats",
+     "train.class_balance": "weighted_loss",
+     "train.crop_s": 7.5,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.weight_decay": 0.003
+    },
+    "rank 4: cnn_3block_screen_1 random random 70 (54639d082539)": {
+     "features.n_mels": 40,
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.4,
+     "model.kernel_size": 5,
+     "model.pooling": "stats",
+     "train.crop_s": 7.5,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.lr": 0.002,
+     "train.schedule": "constant",
+     "train.weight_decay": 0.003
+    },
+    "rank 5: cnn_3block_screen_1 random random 30 (39aac4ba7315)": {
+     "augment.freq_mask_width": 12,
+     "augment.freq_masks": 2,
+     "augment.time_mask_width": 30,
+     "augment.time_masks": 2,
+     "model.channels": [
+      64,
+      128,
+      256
+     ],
+     "model.convs_per_block": 2,
+     "model.dropout": 0.4,
+     "model.kernel_size": 5,
+     "model.pooling": "stats",
+     "train.batch_size": 16,
+     "train.class_balance": "weighted_loss",
+     "train.crop_s": 10.0,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.labels": "soft",
+     "train.lr": 0.0003,
+     "train.weight_decay": 0.003
+    },
+    "rank 6: cnn_3block_screen_1 random random 43 (56c273decc69)": {
+     "augment.freq_mask_width": 8,
+     "augment.freq_masks": 2,
+     "augment.time_mask_width": 20,
+     "augment.time_masks": 2,
+     "features.n_mels": 80,
+     "model.channels": [
+      48,
+      96,
+      192
+     ],
+     "model.convs_per_block": 2,
+     "model.dropout": 0.2,
+     "train.batch_size": 16,
+     "train.class_balance": "weighted_loss",
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.labels": "soft",
+     "train.weight_decay": 0.001
+    },
+    "rank 7: cnn_3block_screen_1 random random 13 (237de93d13fc)": {
+     "augment.freq_mask_width": 8,
+     "augment.freq_masks": 2,
+     "augment.time_mask_width": 20,
+     "augment.time_masks": 2,
+     "model.channels": [
+      48,
+      96,
+      192
+     ],
+     "model.convs_per_block": 2,
+     "model.dropout": 0.4,
+     "train.batch_size": 16,
+     "train.crop_s": 7.5,
+     "train.early_stopping_patience": 20,
+     "train.lr": 0.0003,
+     "train.weight_decay": 0.01
+    },
+    "rank 8: cnn_3block_screen_1 random random 87 (8424697471f4)": {
+     "features.n_mels": 40,
+     "model.channels": [
+      48,
+      96,
+      192
+     ],
+     "model.dropout": 0.2,
+     "model.pooling": "stats",
+     "train.crop_s": 10.0,
+     "train.early_stopping_patience": 20,
+     "train.weight_decay": 0.003
+    },
+    "rank 9: cnn_3block_screen_1 random random 94 (f93bfa1433b5)": {
+     "features.n_mels": 40,
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.4,
+     "model.kernel_size": 5,
+     "train.batch_size": 16,
+     "train.class_balance": "weighted_loss",
+     "train.crop_s": 7.5,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.schedule": "constant",
+     "train.weight_decay": 0.01
+    },
+    "rank 10: cnn_3block_screen_1 random random 36 (9ea0e88b2e9b)": {
+     "augment.freq_mask_width": 12,
+     "augment.freq_masks": 2,
+     "augment.time_mask_width": 30,
+     "augment.time_masks": 2,
+     "model.channels": [
+      48,
+      96,
+      192
+     ],
+     "model.convs_per_block": 2,
+     "model.dropout": 0.4,
+     "model.kernel_size": 5,
+     "train.batch_size": 16,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.weight_decay": 0.001
+    },
+    "rank 11: cnn_3block_screen_1 random random 21 (1d9deb480991)": {
+     "features.n_mels": 40,
+     "model.channels": [
+      64,
+      128,
+      256
+     ],
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.5,
+     "model.kernel_size": 5,
+     "model.pooling": "stats",
+     "train.batch_size": 16,
+     "train.class_balance": "weighted_loss",
+     "train.crop_s": 7.5,
+     "train.early_stopping_patience": 20,
+     "train.schedule": "constant",
+     "train.weight_decay": 0.003
+    },
+    "rank 12: cnn_3block_screen_1 random random 11 (36bd1c7bfe10)": {
+     "augment.freq_mask_width": 12,
+     "augment.freq_masks": 2,
+     "augment.time_mask_width": 30,
+     "augment.time_masks": 2,
+     "features.n_mels": 80,
+     "model.convs_per_block": 2,
+     "model.dropout": 0.5,
+     "model.kernel_size": 5,
+     "model.pooling": "stats",
+     "train.batch_size": 16,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.labels": "soft",
+     "train.lr": 0.002,
+     "train.schedule": "constant"
+    },
+    "rank 13: cnn_3block_screen_1 random random 20 (ec4d6b4730df)": {
+     "model.channels": [
+      64,
+      128,
+      256
+     ],
+     "model.classifier_hidden": 128,
+     "model.kernel_size": 5,
+     "model.pooling": "stats",
+     "train.batch_size": 16,
+     "train.crop_s": 10.0,
+     "train.early_stopping_patience": 20,
+     "train.labels": "soft",
+     "train.weight_decay": 0.001
+    },
+    "rank 14: cnn_3block_screen_1 random random 14 (39bd615dda0e)": {
+     "features.n_mels": 40,
+     "model.channels": [
+      48,
+      96,
+      192
+     ],
+     "model.classifier_hidden": 128,
+     "model.pooling": "stats",
+     "train.batch_size": 64,
+     "train.crop_s": 10.0,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.001
+    },
+    "rank 15: cnn_3block_screen_1 random random 62 (d2acb0a6d167)": {
+     "augment.freq_mask_width": 8,
+     "augment.freq_masks": 2,
+     "augment.time_mask_width": 20,
+     "augment.time_masks": 2,
+     "features.n_mels": 40,
+     "model.dropout": 0.4,
+     "model.kernel_size": 5,
+     "model.pooling": "max",
+     "train.crop_s": 10.0,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.lr": 0.002,
+     "train.schedule": "constant",
+     "train.weight_decay": 0.003
+    },
+    "rank 16: cnn_3block_screen_1 random random 76 (074a4df0f524)": {
+     "model.convs_per_block": 2,
+     "model.dropout": 0.4,
+     "train.batch_size": 16,
+     "train.class_balance": "weighted_loss",
+     "train.crop_s": 7.5,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.003
+    },
+    "rank 17: cnn_3block_screen_1 random random 95 (645a46eb3870)": {
+     "augment.freq_mask_width": 8,
+     "augment.freq_masks": 2,
+     "augment.time_mask_width": 20,
+     "augment.time_masks": 2,
+     "features.n_mels": 80,
+     "model.channels": [
+      48,
+      96,
+      192
+     ],
+     "model.classifier_hidden": 128,
+     "model.convs_per_block": 2,
+     "model.dropout": 0.2,
+     "model.kernel_size": 5,
+     "model.pooling": "max",
+     "train.class_balance": "weighted_loss",
+     "train.crop_s": 10.0,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.labels": "soft",
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.003
+    },
+    "rank 18: cnn_3block_screen_1 random random 33 (3097316440ed)": {
+     "model.kernel_size": 5,
+     "train.batch_size": 16,
+     "train.early_stopping_patience": 20,
+     "train.epochs": 100,
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.003
+    },
+    "rank 19: cnn_3block_screen_1 random random 39 (58dba32c3ceb)": {
+     "features.n_mels": 40,
+     "model.channels": [
+      48,
+      96,
+      192
+     ],
+     "model.dropout": 0.4,
+     "model.kernel_size": 5,
+     "model.pooling": "stats",
+     "train.crop_s": 7.5,
+     "train.labels": "soft",
+     "train.lr": 0.002,
+     "train.weight_decay": 0.001
+    }
+   }
+  }
+ ]
+}

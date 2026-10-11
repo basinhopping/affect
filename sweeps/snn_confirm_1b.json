@@ -1,0 +1,227 @@
+{
+ "sweep_id": "snn_confirm_1b",
+ "description": "Fallback of snn_confirm_1 without the training-set pass (train.eval_train none), used only if snn_confirm_1's smoke test fails (RULE_night9_tests.txt): the same base and candidates on the same seeds and folds, each configuration exactly as the screen ran it. Confirmation of the fully spiking CNN + LIF (model family 3b) (RULE_night9_tests.txt, 'Confirmations', fixed on 2026-10-09 at 03:20 UTC before any file of the screen had left the node): the 9 configurations with the highest mean validation UA over seeds 1 to 3 among the 95 distinct complete configurations of snn_screen_1, plus the screen's base, on seeds 6 to 10, which no screen used, and the five session-out folds, with train.eval_train every_epoch (added to the screen's settings; it changes nothing else in a run). 10 configurations and 250 jobs. The finalist, snn_final, is the configuration with the highest mean validation UA over seeds 6 to 10, recorded before any test file is read. Priority 100. Validation only.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 20.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 10,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "snn",
+   "encoding": "frames",
+   "static_steps": null,
+   "channels": [
+    16,
+    32,
+    64
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "conv_norm": "batch",
+   "lif_hidden": [
+    128
+   ],
+   "recurrent": false,
+   "lif_norm": "none",
+   "lif_dropout": 0.1,
+   "beta": 0.9,
+   "learn_beta": "layer",
+   "threshold": 1.0,
+   "reset": "subtract",
+   "detach_reset": true,
+   "surrogate": "atan",
+   "surrogate_slope": 2.0,
+   "readout_beta": 0.9,
+   "rate_weight": 0.0,
+   "rate_target": 0.1,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0003,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 4.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "none"
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  {
+   "name": "candidates",
+   "kind": "variants",
+   "priority": 100,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "variants": {
+    "rank 1: snn_screen_1 random random 33 (9cbeb35ecc2e)": {
+     "model.beta": 0.8,
+     "model.convs_per_block": 2,
+     "model.detach_reset": false,
+     "model.lif_dropout": 0.0,
+     "model.lif_hidden": [
+      128,
+      64
+     ],
+     "model.lif_norm": "batch",
+     "model.rate_target": 0.2,
+     "model.rate_weight": 1.0,
+     "model.readout_beta": 0.97,
+     "model.recurrent": true,
+     "model.surrogate": "boxcar",
+     "model.surrogate_slope": 1.0,
+     "train.lr": 0.001,
+     "train.weight_decay": 0.01
+    },
+    "rank 2: snn_screen_1 random random 58 (7008e03b290c)": {
+     "model.beta": 0.8,
+     "model.channels": [
+      32,
+      64,
+      128
+     ],
+     "model.conv_norm": "none",
+     "model.dropout": 0.5,
+     "model.encoding": "repeat",
+     "model.learn_beta": "none",
+     "model.lif_hidden": [
+      128,
+      64
+     ],
+     "model.lif_norm": "layer",
+     "model.rate_target": 0.05,
+     "model.rate_weight": 1.0,
+     "model.readout_beta": 0.5,
+     "model.recurrent": true,
+     "model.reset": "zero",
+     "model.static_steps": 4,
+     "model.surrogate": "sigmoid",
+     "model.surrogate_slope": 5.0
+    },
+    "rank 3: snn_screen_1 one_factor train.lr=0.001 (6be4584f4f30)": {
+     "train.lr": 0.001
+    },
+    "rank 4: snn_screen_1 random random 8 (d287d7686374)": {
+     "model.beta": 0.8,
+     "model.channels": [
+      16,
+      32
+     ],
+     "model.detach_reset": false,
+     "model.encoding": "repeat",
+     "model.lif_dropout": 0.0,
+     "model.lif_hidden": [
+      256
+     ],
+     "model.lif_norm": "layer",
+     "model.rate_target": 0.05,
+     "model.rate_weight": 1.0,
+     "model.readout_beta": 0.5,
+     "model.recurrent": true,
+     "model.reset": "zero",
+     "model.static_steps": 4,
+     "model.surrogate": "sigmoid",
+     "model.surrogate_slope": 5.0,
+     "train.batch_size": 32,
+     "train.lr": 0.001
+    },
+    "rank 5: snn_screen_1 one_factor encoding (aedf9bb75f46)": {
+     "model.encoding": "repeat",
+     "model.static_steps": 8
+    },
+    "rank 6: snn_screen_1 random random 50 (8112468f9924)": {
+     "model.beta": 0.8,
+     "model.convs_per_block": 2,
+     "model.detach_reset": false,
+     "model.dropout": 0.2,
+     "model.learn_beta": "none",
+     "model.lif_dropout": 0.0,
+     "model.lif_norm": "layer",
+     "model.rate_target": 0.05,
+     "model.rate_weight": 1.0,
+     "model.surrogate": "fast_sigmoid",
+     "model.surrogate_slope": 25.0,
+     "model.threshold": 2.0,
+     "train.batch_size": 32,
+     "train.lr": 0.001
+    },
+    "rank 7: snn_screen_1 one_factor model.channels=[32, 64, 128] (8f634a150d5e)": {
+     "model.channels": [
+      32,
+      64,
+      128
+     ]
+    },
+    "rank 8: snn_screen_1 one_factor encoding (b32c4fd99fc1)": {
+     "model.encoding": "repeat",
+     "model.static_steps": 4
+    },
+    "rank 9: snn_screen_1 one_factor model.lif_dropout=0.0 (841d0f069af6)": {
+     "model.lif_dropout": 0.0
+    }
+   }
+  }
+ ]
+}

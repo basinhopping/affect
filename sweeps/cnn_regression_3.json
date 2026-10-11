@@ -1,0 +1,121 @@
+{
+ "sweep_id": "cnn_regression_3",
+ "description": "Regression check for the code of 2026-10-03 (the three new class sets, train.eval_train, the per-GPU stop files): the CNN baseline (cf0495a296e9) on seeds 1 and 2 and cnn_final_3 (7977141b6ba3) on seed 1 (cnn_screen_3, cnn_tuned3_session_out) and seed 6 (cnn_confirm_3), session-out folds, every new option off. The same run IDs as those copies; compare-runs must print SAME. Priority 200, first of the night.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "none"
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 200,
+   "seeds": [
+    1,
+    2
+   ]
+  },
+  {
+   "name": "final_3",
+   "kind": "variants",
+   "priority": 200,
+   "seeds": [
+    1,
+    6
+   ],
+   "variants": {
+    "cnn_final_3 (7977141b6ba3)": {
+     "features.n_mels": 40,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "augment.freq_masks": 2,
+     "model.kernel_size": 5,
+     "train.schedule": "constant",
+     "train.class_balance": "weighted_loss",
+     "train.early_stopping_patience": 20,
+     "train.lr": 0.0003,
+     "train.labels": "soft",
+     "train.epochs": 100,
+     "train.crop_s": 10.0,
+     "train.batch_size": 16,
+     "train.weight_decay": 0.003
+    }
+   }
+  }
+ ]
+}

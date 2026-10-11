@@ -1,0 +1,100 @@
+{
+ "sweep_id": "cnn_tuned3_protocol_speaker_out",
+ "description": "cnn_final_3 (7977141b6ba3 settings: first on validation in cnn_confirm_3, recorded in artifacts/selections/cnn_final_3 on 2026-10-01 before any test file was read, frozen since) under the data protocol of cnn_tuned2_protocol_speaker_out, with its folds and seeds, so every row sits beside the baseline's and the night-3 finalists' rows of that split on the same test utterances and seeds (rule 2 of the protocols page). Added for night 8 at Harrison's request, for a full comparison at the meeting of 2026-10-02; the test comparisons were fixed before any run of this sweep existed (artifacts/analyses/night8_prep_20261002/RULE_night8_tests.txt). Priority 98, the cnn_tuned2 sweep's, above the LIF screens. Validation only until a selection record exists.",
+ "folds": [
+  "test_Ses01_F",
+  "test_Ses01_M",
+  "test_Ses02_F",
+  "test_Ses02_M",
+  "test_Ses03_F",
+  "test_Ses03_M",
+  "test_Ses04_F",
+  "test_Ses04_M",
+  "test_Ses05_F",
+  "test_Ses05_M"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_speaker_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 40,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 5,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 100,
+   "batch_size": 16,
+   "lr": 0.0003,
+   "weight_decay": 0.003,
+   "warmup_epochs": 2,
+   "schedule": "constant",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "soft",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null
+  }
+ },
+ "stages": [
+  {
+   "name": "final_3",
+   "kind": "base",
+   "priority": 98,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  }
+ ]
+}

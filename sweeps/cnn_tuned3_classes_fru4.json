@@ -1,0 +1,96 @@
+{
+ "sweep_id": "cnn_tuned3_classes_fru4",
+ "description": "Dr. Luitel's requests of 2026-10-02: cnn_final_3 (7977141b6ba3 settings, artifacts/selections/cnn_final_3, frozen since 2026-10-01) under label set four_with_frustration_no_neutral (fru4), session out, seeds 1 to 5. Happy and excited stay merged and frustration is added (fru5, fru4), with and without neutral; no_neu3 drops neutral without adding frustration. Priority 150, above the LIF screens. train.eval_train every_epoch records the training UA, WA, macro-F1 and mean NLL after every epoch. Nothing is chosen from these runs; validation only until a selection record or a rule file names the test reads.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_with_frustration_no_neutral",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 40,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 5,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 100,
+   "batch_size": 16,
+   "lr": 0.0003,
+   "weight_decay": 0.003,
+   "warmup_epochs": 2,
+   "schedule": "constant",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "soft",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch"
+  }
+ },
+ "stages": [
+  {
+   "name": "final_3",
+   "kind": "base",
+   "priority": 150,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  }
+ ]
+}

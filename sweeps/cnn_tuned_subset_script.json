@@ -1,0 +1,114 @@
+{
+ "sweep_id": "cnn_tuned_subset_script",
+ "description": "The two confirmed CNN finalists under the data protocol of cnn_subset_script: the base is cnn_final_1 (9e0cfdfd7f40 settings) and the variant is cnn_final_1b (7c12a8af46e1 settings), both frozen from night 2's session-out confirmation (rule 2 of the protocol page). Seeds 1 to 5 and the same folds as cnn_subset_script, so every tuned row sits beside the baseline row on the same test utterances. Data section copied from cnn_subset_script. Priority 90. Validation only until a selection record exists.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "script",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "max",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0003,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null
+  }
+ },
+ "stages": [
+  {
+   "name": "final_1",
+   "kind": "base",
+   "priority": 90,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "final_1b",
+   "kind": "variants",
+   "priority": 90,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "variants": {
+    "cnn_final_1b (7c12a8af46e1)": {
+     "features.n_mels": 80,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.pooling": "stats",
+     "model.dropout": 0.5,
+     "train.batch_size": 32,
+     "train.lr": 0.003,
+     "train.weight_decay": 0.001,
+     "train.crop_s": 5.0,
+     "train.label_smoothing": 0.0
+    }
+   }
+  }
+ ]
+}

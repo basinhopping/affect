@@ -1,0 +1,106 @@
+{
+ "sweep_id": "classical_svm_null_1",
+ "description": "The null distribution of the SVM's shuffled-label control (classical_svm_1's control reached 0.319 validation UA and 0.321 test UA, above the 0.30 alarm): the eGeMAPS v02 SVM with per-speaker z-scores, rbf kernel and the same C and gamma lists, trained on shuffled training labels, with 20 new shuffles (seeds 2 to 21; seed 1 was classical_svm_1's control), with class-balanced weights as there and without class weights, to test whether balanced weights push a chance model toward the two smallest classes. Every configuration here is a control. Validation and test are both read: nothing here is ever selected.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "functionals": {
+   "feature_set": "eGeMAPSv02",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.01,
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.1,
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "shuffle_train_labels",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "balanced",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21
+   ]
+  },
+  {
+   "name": "unweighted",
+   "kind": "variants",
+   "priority": 90,
+   "seeds": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21
+   ],
+   "variants": {
+    "no class weights": {
+     "method.class_weight": "none"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,53 @@
+{
+ "sweep_id": "classical_tpot_1",
+ "description": "TPOT (Olson et al. 2016), the AutoML tool Dr. Luitel asked about, as a classical baseline: genetic programming over scikit-learn pipelines on the eGeMAPS v02 functionals, z-scored per speaker, with the settings of the TPOT paper (100 generations of 100 pipelines) and TPOT's default operators. Every pipeline is fitted on the 3 training sessions and scored by UA on the validation session (the rule every model here follows); the winner, refitted on the training sessions, predicts the test session. A search stops after 45 minutes if the generations are not done. TPOT's search is random, so 5 seeds. Runs on CPUs in the classical environment, not in the GPU queue.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "functionals": {
+   "feature_set": "eGeMAPSv02",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "tpot",
+   "generations": 100,
+   "population_size": 100,
+   "offspring_size": 100,
+   "mutation_rate": 0.9,
+   "crossover_rate": 0.1,
+   "operators": "default",
+   "max_time_mins": 45.0,
+   "max_eval_time_mins": 5.0,
+   "n_jobs": 64
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  }
+ ]
+}

@@ -1,0 +1,138 @@
+{
+ "sweep_id": "cnn_tuned2_protocol_half_train",
+ "description": "The three night-3 finalists under the data protocol of cnn_protocol_half_train (rule 2 of the protocols page): the base is cnn_final_2 (3d73145068ba settings, first on validation in cnn_confirm_2), the variants cnn_final_2b (22d4a4c3cb5d) and cnn_final_2c (5285fd70bae6), all frozen before this run. Folds and seeds 1 to 5 as in cnn_protocol_half_train, so every row sits beside that sweep's baseline row on the same test utterances; data section copied from it. Priority 91. Validation only until a selection record exists.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out_half_train"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 48,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 12,
+   "time_masks": 2,
+   "time_mask_width": 30,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256,
+    512
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "stats",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.001,
+   "warmup_epochs": 5,
+   "schedule": "constant",
+   "early_stopping_patience": 20,
+   "crop_s": 4.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null
+  }
+ },
+ "stages": [
+  {
+   "name": "final_2",
+   "kind": "base",
+   "priority": 91,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "finalists",
+   "kind": "variants",
+   "priority": 91,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "variants": {
+    "cnn_final_2b (22d4a4c3cb5d)": {
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.2,
+     "train.lr": 0.0005,
+     "train.schedule": "cosine",
+     "train.crop_s": 5.0,
+     "train.class_balance": "none"
+    },
+    "cnn_final_2c (5285fd70bae6)": {
+     "features.n_mels": 32,
+     "features.normalization": "speaker",
+     "augment.freq_mask_width": 8,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.4,
+     "train.epochs": 100,
+     "train.batch_size": 32,
+     "train.weight_decay": 0.003,
+     "train.warmup_epochs": 2,
+     "train.schedule": "cosine",
+     "train.crop_s": 7.5
+    }
+   }
+  }
+ ]
+}

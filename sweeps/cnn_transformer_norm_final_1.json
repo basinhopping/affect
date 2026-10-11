@@ -1,0 +1,165 @@
+{
+ "sweep_id": "cnn_transformer_norm_final_1",
+ "description": "The normalization layer after every convolution of the front end, and the activation, each changed alone from cnn_transformer_final_1 (47ce7034379e; batch norm and relu), as cnn_norm_final_1 and cnn_norm_final_2 did for the CNN: sub-spectral batch norm with 2 bands, sub-spectral batch norm with 4 bands, group norm with 8 groups, group norm with 1 group (layer norm), no normalization; leaky_relu, elu, gelu, silu. The Transformer's own layer norms are unchanged. 5 seeds, session-out folds; seeds 1 to 3 of the base repeat its screen runs. Priority 100. Validation only.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 48,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 12,
+   "time_masks": 2,
+   "time_mask_width": 30,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn_transformer",
+   "channels": [
+    48,
+    96,
+    192,
+    384
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "freq_reduce": "flatten",
+   "d_model": 32,
+   "n_heads": 4,
+   "n_layers": 1,
+   "ff_dim": 512,
+   "transformer_dropout": 0.1,
+   "transformer_activation": "gelu",
+   "norm_first": true,
+   "positional": "none",
+   "pooling": "stats",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0001,
+   "weight_decay": 0.001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "norm",
+   "kind": "one_factor_at_a_time",
+   "priority": 100,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "factors": {
+    "normalization layer": [
+     {
+      "model.norm": "subspectral",
+      "model.norm_groups": null,
+      "model.norm_subbands": 2
+     },
+     {
+      "model.norm": "subspectral",
+      "model.norm_groups": null,
+      "model.norm_subbands": 4
+     },
+     {
+      "model.norm": "group",
+      "model.norm_groups": 8,
+      "model.norm_subbands": null
+     },
+     {
+      "model.norm": "group",
+      "model.norm_groups": 1,
+      "model.norm_subbands": null
+     },
+     {
+      "model.norm": "none",
+      "model.norm_groups": null,
+      "model.norm_subbands": null
+     }
+    ]
+   }
+  },
+  {
+   "name": "activation",
+   "kind": "one_factor_at_a_time",
+   "priority": 100,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "factors": {
+    "model.activation": [
+     "leaky_relu",
+     "elu",
+     "gelu",
+     "silu"
+    ]
+   }
+  }
+ ]
+}

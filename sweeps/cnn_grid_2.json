@@ -1,0 +1,124 @@
+{
+ "sweep_id": "cnn_grid_2",
+ "description": "Second grid search: every combination of the four settings with the largest level gaps in cnn_screen_2 after SpecAugment (early-stopping patience 10 or 20, 4 or 5 convolution blocks, per-utterance or per-speaker feature normalization, 5 or 7.5 s training crops), 16 combinations around the baseline with mild SpecAugment, which cnn_grid_1 found to be the largest single gain. The all-base combination is the baseline stage. 5 seeds, session-out folds. Per-speaker normalization uses each test speaker's own unlabeled audio for its statistics, so its rows are labeled as such. Priority 85. Validation only.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 85,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "grid",
+   "kind": "grid",
+   "priority": 85,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "factors": {
+    "train.early_stopping_patience": [
+     10,
+     20
+    ],
+    "model.channels": [
+     [
+      32,
+      64,
+      128,
+      256
+     ],
+     [
+      32,
+      64,
+      128,
+      256,
+      512
+     ]
+    ],
+    "features.normalization": [
+     "utterance",
+     "speaker"
+    ],
+    "train.crop_s": [
+     5.0,
+     7.5
+    ]
+   }
+  }
+ ]
+}

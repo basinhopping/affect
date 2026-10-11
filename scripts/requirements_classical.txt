@@ -1,0 +1,17 @@
+# Packages of the classical baselines' own environment (~/venvs/classical), installed by
+# scripts/setup_classical_env.sh; the training environment (~/venvs/affect) never gets them.
+# TPOT 0.12.2 is the last release with TPOT's original interface (TPOTClassifier with generations,
+# population_size and config_dict), which affect/classical/methods.py uses; scikit-learn 1.4.2,
+# numpy 1.26 and xgboost 2.0 are the releases of that time. openSMILE's Python package brings its
+# own compiled openSMILE. setuptools below 81 provides pkg_resources, which something TPOT imports
+# needs (most likely stopit) and which a Python 3.12 venv no longer has: the first build on the
+# node, 2026-09-26, failed its self-test on exactly that. The exact versions installed are frozen into
+# artifacts/env/pip_freeze_classical_<utc>.txt when the environment is built.
+setuptools<81
+numpy==1.26.4
+scipy==1.13.1
+scikit-learn==1.4.2
+pandas==2.2.2
+xgboost==2.0.3
+tpot==0.12.2
+opensmile

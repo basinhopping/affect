@@ -1,0 +1,15 @@
+# Data is licensed and large; results, queue and logs are produced on the node. A leading slash anchors a
+# pattern to this folder, so src/affect/data/ (code) is not caught by /data/.
+/data/
+/artifacts/
+/queue/
+/logs/
+/CODE_VERSIONS.log
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+# Kept out of git: the state notes and the data checks (they go to the node with the code) and the node's
+# login (PC only).
+/HANDOFF.md
+/VERIFICATION_LOG.md
+/node.local.txt

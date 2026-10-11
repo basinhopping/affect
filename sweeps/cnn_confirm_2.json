@@ -1,0 +1,500 @@
+{
+ "sweep_id": "cnn_confirm_2",
+ "description": "Second confirmation round, on seeds 6 to 10 only, none of which any screen used (night 2's confirm round reused screening seed 1 for 1 of its 5 seeds). Candidates: the two night-2 finalists (cnn_final_1, cnn_final_1b), the best cell of cnn_grid_1 (40 mel bands with mild SpecAugment), and the 16 configurations of cnn_screen_2 with the highest mean validation UA over 3 seeds, all 16 better than the baseline after Holm correction. Session-out folds, validation only until a selection record exists. Priority 100: first of night 3.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  {
+   "name": "candidates",
+   "kind": "variants",
+   "priority": 100,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "variants": {
+    "cnn_final_1 (9e0cfdfd7f40)": {
+     "features.n_mels": 64,
+     "features.win_ms": 25.0,
+     "features.hop_ms": 10.0,
+     "features.n_fft": 512,
+     "features.f_max": 8000.0,
+     "features.normalization": "utterance",
+     "train.crop_s": 10.0,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "train.class_balance": "weighted_loss",
+     "train.labels": "hard",
+     "train.label_smoothing": 0.1,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256
+     ],
+     "model.convs_per_block": 1,
+     "model.kernel_size": 3,
+     "model.pooling": "max",
+     "model.classifier_hidden": null,
+     "model.dropout": 0.3,
+     "train.lr": 0.0003,
+     "train.weight_decay": 0.0001,
+     "train.batch_size": 16
+    },
+    "cnn_final_1b (7c12a8af46e1)": {
+     "features.n_mels": 80,
+     "features.win_ms": 25.0,
+     "features.hop_ms": 10.0,
+     "features.n_fft": 512,
+     "features.f_max": 8000.0,
+     "features.normalization": "utterance",
+     "train.crop_s": 5.0,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "train.class_balance": "weighted_loss",
+     "train.labels": "hard",
+     "train.label_smoothing": 0.0,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.convs_per_block": 1,
+     "model.kernel_size": 3,
+     "model.pooling": "stats",
+     "model.classifier_hidden": null,
+     "model.dropout": 0.5,
+     "train.lr": 0.003,
+     "train.weight_decay": 0.001,
+     "train.batch_size": 32
+    },
+    "grid best: 40 mel bands + mild SpecAugment": {
+     "features.n_mels": 40,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20
+    },
+    "screen_2 random 136 (22d4a4c3cb5d)": {
+     "features.n_mels": 48,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 12,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.pooling": "stats",
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.2,
+     "train.batch_size": 16,
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.early_stopping_patience": 20,
+     "train.label_smoothing": 0.1
+    },
+    "screen_2 random 95 (06425f2c2e1c)": {
+     "features.n_mels": 40,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.pooling": "stats",
+     "model.dropout": 0.2,
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 4.0
+    },
+    "screen_2 random 80 (3d73145068ba)": {
+     "features.n_mels": 48,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 12,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.pooling": "stats",
+     "train.batch_size": 16,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 4.0,
+     "train.class_balance": "weighted_loss",
+     "train.label_smoothing": 0.1
+    },
+    "screen_2 random 22 (f555460e2a72)": {
+     "features.n_mels": 48,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.pooling": "stats",
+     "model.dropout": 0.2,
+     "train.batch_size": 16,
+     "train.lr": 0.002,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 7.5,
+     "train.class_balance": "weighted_loss"
+    },
+    "screen_2 random 64 (869b59888931)": {
+     "features.n_mels": 40,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.pooling": "stats",
+     "model.classifier_hidden": 128,
+     "train.batch_size": 16,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 4.0,
+     "train.label_smoothing": 0.1
+    },
+    "screen_2 random 197 (5285fd70bae6)": {
+     "features.n_mels": 32,
+     "features.normalization": "speaker",
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.pooling": "stats",
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.4,
+     "train.epochs": 100,
+     "train.weight_decay": 0.003,
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 7.5,
+     "train.class_balance": "weighted_loss",
+     "train.label_smoothing": 0.1
+    },
+    "screen_2 random 34 (599f92f1532f)": {
+     "features.n_mels": 32,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.pooling": "stats",
+     "model.dropout": 0.4,
+     "train.epochs": 100,
+     "train.batch_size": 16,
+     "train.lr": 0.002,
+     "train.weight_decay": 0.001,
+     "train.schedule": "constant",
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 7.5,
+     "train.class_balance": "weighted_loss"
+    },
+    "screen_2 random 4 (ada38a0e2ef4)": {
+     "features.n_mels": 32,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 12,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.pooling": "stats",
+     "train.lr": 0.002,
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 7.5
+    },
+    "screen_2 random 19 (99298f4691f3)": {
+     "features.n_mels": 32,
+     "features.normalization": "speaker",
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 12,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 30,
+     "model.pooling": "stats",
+     "train.epochs": 100,
+     "train.batch_size": 16,
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 7.5,
+     "train.class_balance": "weighted_loss",
+     "train.label_smoothing": 0.1
+    },
+    "screen_2 random 93 (7f0138816868)": {
+     "features.n_mels": 32,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.pooling": "stats",
+     "model.dropout": 0.2,
+     "train.batch_size": 16,
+     "train.lr": 0.002,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 7.5,
+     "train.label_smoothing": 0.1
+    },
+    "screen_2 random 116 (d812854954d2)": {
+     "features.n_mels": 48,
+     "features.normalization": "speaker",
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.2,
+     "train.batch_size": 16,
+     "train.lr": 0.002,
+     "train.early_stopping_patience": 20
+    },
+    "screen_2 random 20 (791626ef84c3)": {
+     "features.n_mels": 32,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "train.epochs": 100,
+     "train.batch_size": 16,
+     "train.lr": 0.0005,
+     "train.warmup_epochs": 5,
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 4.0,
+     "train.label_smoothing": 0.1
+    },
+    "screen_2 random 9 (2b7ca6f34b77)": {
+     "features.n_mels": 48,
+     "features.normalization": "speaker",
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.pooling": "stats",
+     "model.dropout": 0.4,
+     "train.epochs": 100,
+     "train.batch_size": 16,
+     "train.lr": 0.0005,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.crop_s": 4.0,
+     "train.class_balance": "weighted_loss",
+     "train.label_smoothing": 0.1
+    },
+    "screen_2 random 29 (24c94f2298ec)": {
+     "features.n_mels": 32,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 12,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.dropout": 0.4,
+     "train.batch_size": 16,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.early_stopping_patience": 20,
+     "train.label_smoothing": 0.1
+    },
+    "screen_2 random 140 (c98bc6741331)": {
+     "features.n_mels": 40,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      48,
+      96,
+      192,
+      384
+     ],
+     "model.pooling": "stats",
+     "model.dropout": 0.2,
+     "train.epochs": 100,
+     "train.warmup_epochs": 5,
+     "train.schedule": "constant",
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 4.0
+    },
+    "screen_2 random 30 (e92ff3bbbe7c)": {
+     "features.n_mels": 32,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 8,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 20,
+     "model.channels": [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     "model.pooling": "stats",
+     "train.epochs": 100,
+     "train.batch_size": 16,
+     "train.weight_decay": 0.001,
+     "train.warmup_epochs": 5,
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 7.5,
+     "train.label_smoothing": 0.1
+    }
+   }
+  }
+ ]
+}

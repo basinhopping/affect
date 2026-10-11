@@ -1,0 +1,322 @@
+{
+ "sweep_id": "cnn_3block_screen_1",
+ "description": "Dr. Luitel's requests of 2026-10-02: \"3 level arch, 32 64 128, focus on a 3 layer, .001 lr, try sweeping around with those settings\". Base: the baseline's settings with model.channels [32, 64, 128] (lr 0.001 as the baseline's), session out, four merged classes, train.eval_train every_epoch, seeds 1 to 5 (priority 140); its difference from the baseline is the depth alone (cnn_trainacc_base_session_out: the same settings with 4 blocks, same seeds). one_factor: one change at a time around the base, seeds 1 to 3 (120). random: 100 configurations around it, seeds 1 to 3 (100). Validation only: the candidates for a confirmation on seeds 6 to 10 are chosen from the validation files by the rule used for every screen, recorded before any test file is read.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 140,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "one_factor",
+   "kind": "one_factor_at_a_time",
+   "priority": 120,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "train.lr": [
+     0.0003,
+     0.0005,
+     0.002,
+     0.003
+    ],
+    "model.channels": [
+     [
+      16,
+      32,
+      64
+     ],
+     [
+      48,
+      96,
+      192
+     ],
+     [
+      64,
+      128,
+      256
+     ]
+    ],
+    "model.kernel_size": [
+     5
+    ],
+    "model.convs_per_block": [
+     2
+    ],
+    "model.pooling": [
+     "stats",
+     "max",
+     "attention"
+    ],
+    "model.dropout": [
+     0.1,
+     0.5
+    ],
+    "model.classifier_hidden": [
+     128
+    ],
+    "train.batch_size": [
+     16,
+     64
+    ],
+    "train.weight_decay": [
+     0.001,
+     0.01
+    ],
+    "train.schedule": [
+     "constant"
+    ],
+    "patience": [
+     {
+      "train.early_stopping_patience": 20
+     },
+     {
+      "train.epochs": 100,
+      "train.early_stopping_patience": 20
+     }
+    ],
+    "specaugment": [
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 8,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 20
+     }
+    ],
+    "train.class_balance": [
+     "weighted_loss"
+    ],
+    "train.labels": [
+     "soft"
+    ],
+    "features.n_mels": [
+     40,
+     80
+    ],
+    "train.crop_s": [
+     7.5,
+     10.0
+    ]
+   }
+  },
+  {
+   "name": "random",
+   "kind": "random",
+   "priority": 100,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "n_configs": 100,
+   "sampling_seed": 20261003,
+   "space": {
+    "train.lr": [
+     0.0003,
+     0.0005,
+     0.001,
+     0.002
+    ],
+    "model.channels": [
+     [
+      16,
+      32,
+      64
+     ],
+     [
+      32,
+      64,
+      128
+     ],
+     [
+      48,
+      96,
+      192
+     ],
+     [
+      64,
+      128,
+      256
+     ]
+    ],
+    "model.kernel_size": [
+     3,
+     5
+    ],
+    "model.convs_per_block": [
+     1,
+     2
+    ],
+    "model.pooling": [
+     "mean",
+     "stats",
+     "max"
+    ],
+    "model.dropout": [
+     0.2,
+     0.3,
+     0.4,
+     0.5
+    ],
+    "model.classifier_hidden": [
+     null,
+     128
+    ],
+    "train.batch_size": [
+     16,
+     32,
+     64
+    ],
+    "train.weight_decay": [
+     0.0001,
+     0.001,
+     0.003,
+     0.01
+    ],
+    "train.schedule": [
+     "cosine",
+     "constant"
+    ],
+    "length": [
+     {
+      "train.epochs": 60,
+      "train.early_stopping_patience": 10
+     },
+     {
+      "train.epochs": 60,
+      "train.early_stopping_patience": 20
+     },
+     {
+      "train.epochs": 100,
+      "train.early_stopping_patience": 20
+     }
+    ],
+    "specaugment": [
+     {
+      "augment.freq_masks": 0,
+      "augment.freq_mask_width": 0,
+      "augment.time_masks": 0,
+      "augment.time_mask_width": 0
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 8,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 20
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 12,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 30
+     }
+    ],
+    "train.class_balance": [
+     "none",
+     "weighted_loss"
+    ],
+    "train.labels": [
+     "hard",
+     "soft"
+    ],
+    "features.n_mels": [
+     40,
+     64,
+     80
+    ],
+    "train.crop_s": [
+     5.0,
+     7.5,
+     10.0
+    ]
+   }
+  }
+ ]
+}

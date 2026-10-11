@@ -1,0 +1,105 @@
+{
+ "sweep_id": "classical_svm_1",
+ "description": "Classical baseline: openSMILE functionals of each utterance with a support vector machine, on the CNN's session-out folds. Every combination of the feature set (eGeMAPS v02, 88 features; ComParE 2016, 6,373; emobase, 988), the z-scoring (per speaker, which uses each test speaker's unlabeled audio as the CNN's speaker normalization does, or with training statistics) and the kernel (rbf or linear), with class-balanced weights; C (and gamma, as multiples of 1 / features) picked on validation UA from the lists given; the chosen model, fitted on the 3 training sessions, predicts the test session. The published SVM baselines on IEMOCAP sit at 56.8 to 58.8 UA (literature review, 5.1). The SVM has no random start, so one seed. Plus two checks on eGeMAPS: refitting on training plus validation, and shuffled training labels (expect chance). Runs on CPUs in the classical environment, not in the GPU queue.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "functionals": {
+   "feature_set": "eGeMAPSv02",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.01,
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.1,
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "grid",
+   "kind": "grid",
+   "priority": 90,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "eGeMAPSv02",
+     "emobase",
+     "ComParE_2016"
+    ],
+    "functionals.normalization": [
+     "speaker",
+     "global"
+    ],
+    "kernel": [
+     {
+      "method.kernel": "rbf",
+      "method.gamma_scales": [
+       0.1,
+       0.3,
+       1.0,
+       3.0
+      ]
+     },
+     {
+      "method.kernel": "linear",
+      "method.gamma_scales": []
+     }
+    ]
+   }
+  },
+  {
+   "name": "checks",
+   "kind": "variants",
+   "priority": 80,
+   "seeds": [
+    1
+   ],
+   "variants": {
+    "refit on training plus validation": {
+     "protocol.refit": "train_and_val"
+    },
+    "shuffled training labels": {
+     "protocol.control": "shuffle_train_labels"
+    }
+   }
+  }
+ ]
+}

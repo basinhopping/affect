@@ -1,0 +1,351 @@
+{
+ "sweep_id": "cnn_screen_1",
+ "description": "First CNN screening night (plan 5.2 and 5.3), validation only. Stage baseline: the base configuration with 5 seeds, which measures seed noise. Stage controls: training labels shuffled, the leak test; validation UA should sit near 0.25. Stage one_factor: each listed level changed alone from the base, seed 1, paired with baseline seed 1. Stage random: 120 configurations drawing every factor at random, seed 1, for interactions. Every configuration runs all five leave-one-session-out folds. The base is a common starting point for log-mel CNNs, not a tuned choice.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "controls",
+   "kind": "variants",
+   "priority": 90,
+   "seeds": [
+    1,
+    2
+   ],
+   "variants": {
+    "shuffled training labels": {
+     "train.control": "shuffle_train_labels"
+    }
+   }
+  },
+  {
+   "name": "one_factor",
+   "kind": "one_factor_at_a_time",
+   "priority": 50,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "features.n_mels": [
+     40,
+     80,
+     128
+    ],
+    "window": [
+     {
+      "features.win_ms": 50.0,
+      "features.hop_ms": 12.5,
+      "features.n_fft": 1024
+     }
+    ],
+    "features.f_max": [
+     4000.0
+    ],
+    "features.normalization": [
+     "global",
+     "none"
+    ],
+    "train.crop_s": [
+     3.0,
+     7.5,
+     10.0
+    ],
+    "specaugment": [
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 8,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 20
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 15,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 40
+     }
+    ],
+    "train.class_balance": [
+     "weighted_loss",
+     "balanced_sampler"
+    ],
+    "train.labels": [
+     "soft"
+    ],
+    "train.label_smoothing": [
+     0.1
+    ],
+    "model.channels": [
+     [
+      16,
+      32,
+      64,
+      128
+     ],
+     [
+      64,
+      128,
+      256,
+      512
+     ],
+     [
+      32,
+      64,
+      128,
+      256,
+      512
+     ]
+    ],
+    "model.convs_per_block": [
+     2
+    ],
+    "model.kernel_size": [
+     5
+    ],
+    "model.pooling": [
+     "max",
+     "meanmax",
+     "stats",
+     "attention"
+    ],
+    "model.classifier_hidden": [
+     128
+    ],
+    "model.dropout": [
+     0.1,
+     0.5
+    ],
+    "train.lr": [
+     0.0003,
+     0.003
+    ],
+    "train.weight_decay": [
+     0.001,
+     0.01
+    ],
+    "train.batch_size": [
+     16,
+     64
+    ]
+   }
+  },
+  {
+   "name": "random",
+   "kind": "random",
+   "priority": 10,
+   "seeds": [
+    1
+   ],
+   "n_configs": 120,
+   "sampling_seed": 20260925,
+   "space": {
+    "features.n_mels": [
+     40,
+     64,
+     80,
+     128
+    ],
+    "window": [
+     {
+      "features.win_ms": 25.0,
+      "features.hop_ms": 10.0,
+      "features.n_fft": 512
+     },
+     {
+      "features.win_ms": 50.0,
+      "features.hop_ms": 12.5,
+      "features.n_fft": 1024
+     }
+    ],
+    "features.f_max": [
+     8000.0,
+     4000.0
+    ],
+    "features.normalization": [
+     "utterance",
+     "global",
+     "none"
+    ],
+    "train.crop_s": [
+     3.0,
+     5.0,
+     7.5,
+     10.0
+    ],
+    "specaugment": [
+     {
+      "augment.freq_masks": 0,
+      "augment.freq_mask_width": 0,
+      "augment.time_masks": 0,
+      "augment.time_mask_width": 0
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 8,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 20
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 15,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 40
+     }
+    ],
+    "train.class_balance": [
+     "none",
+     "weighted_loss",
+     "balanced_sampler"
+    ],
+    "train.labels": [
+     "hard",
+     "soft"
+    ],
+    "train.label_smoothing": [
+     0.0,
+     0.1
+    ],
+    "model.channels": [
+     [
+      16,
+      32,
+      64,
+      128
+     ],
+     [
+      32,
+      64,
+      128,
+      256
+     ],
+     [
+      64,
+      128,
+      256,
+      512
+     ],
+     [
+      32,
+      64,
+      128,
+      256,
+      512
+     ]
+    ],
+    "model.convs_per_block": [
+     1,
+     2
+    ],
+    "model.kernel_size": [
+     3,
+     5
+    ],
+    "model.pooling": [
+     "mean",
+     "max",
+     "meanmax",
+     "stats",
+     "attention"
+    ],
+    "model.classifier_hidden": [
+     null,
+     128
+    ],
+    "model.dropout": [
+     0.1,
+     0.3,
+     0.5
+    ],
+    "train.lr": [
+     0.0003,
+     0.001,
+     0.003
+    ],
+    "train.weight_decay": [
+     0.0001,
+     0.001,
+     0.01
+    ],
+    "train.batch_size": [
+     16,
+     32,
+     64
+    ]
+   }
+  }
+ ]
+}
