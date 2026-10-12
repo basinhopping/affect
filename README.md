@@ -1,252 +1,165 @@
-# affect
+# Example: the baseline CNN, from the config to the result
 
-Speech emotion recognition on IEMOCAP for the F26 Affective Computing project. One canonical
-tree: `C:\Affective Computing\affect` on the PC. The GPU node holds a working copy at
-`~/affect`, replaced wholesale by each push. The plan, with every decision
-and its reason, is the project document "Affective Computing Plan and Data Map".
+These are the real files behind one result of the project: the baseline CNN on IEMOCAP's four standard classes (neutral, happy+excited, angry, sad), session out, seeds 1 to 5. Its selection record is `cnn_base_session_out`, and its test UA is 0.559. The folders are numbered in the order the files were made, and each step links to the code that made them, at commit [`d193f4e`](https://github.com/basinhopping/affect/tree/d193f4ed296a20d68477549b91f8fe04af4fc78a).
 
-`HANDOFF.md` (the current state) and `VERIFICATION_LOG.md` (every data check) travel with the code to the
-node but stay out of the git repository, as do `data/` (IEMOCAP is licensed) and `artifacts/` (results).
-`notebooks/cnn_3block.ipynb` walks one experiment from its settings to its results.
+The files are copied unchanged from the run, with two exceptions for this public repository. The run folder's `predictions_val.csv` and `predictions_test.csv` are left out, because they list IEMOCAP's labels utterance by utterance, and the corpus license keeps labels out of the repository. In `provenance.json`, the server's host name and my login in its paths are removed.
 
-## Layout
+Two terms used throughout:
 
-```
-affect/
-  README.md  HANDOFF.md  VERIFICATION_LOG.md  findings.csv  requirements.in
-  src/affect/          all code (the package)
-    __init__.py        the node's CUDA MPS fix, applied on import
-    settings.py        settings: frozen dataclasses, no defaults, checked both ways, hashed
-    registry.py        @register_dataset / @register_feature / @register_model
-    catalog.py         one import line per component module
-    data/              iemocap.py, iemocap_splits.py (the split schemes), splits.py, ingest.py,
-                       assemble.py, transfer.py, walk.py, manifest.py, audio.py, base.py
-    eval/              metrics.py (UA, WA, F1), stats.py (t intervals, paired bootstrap, P(A>B), Holm)
-    runs/              store.py (output folders), provenance.py
-    env.py             environment and GPU checks
-    cli.py             python -m affect.cli ...
-    features/logmel.py
-    augment/           settings.py (every augmentation setting), specaugment.py, speed.py (speed
-                       perturbation), mixup.py
-    models/            cnn.py (the CNN and the shared convolutional front end: normalization layer
-                       and activation are settings), cnn_transformer.py, cnn_lif.py (the CNN front end
-                       with LIF layers, the hybrid), snn.py (fully spiking), lif.py (the spiking
-                       layers), lif_reference.py (the neuron in numpy, for the tests), heads.py (the
-                       gender head)
-    train/             settings.py, data.py (audio in memory, crops, speed-perturbed crops,
-                       evaluation segments), loop.py (one job; train.loop.Step is one training step)
-    runs/spec.py       a job's five settings sections, validated and hashed
-    classical/         openSMILE functionals with an SVM or a TPOT search (own environment):
-                       settings.py, functionals.py, methods.py, runner.py, selftest.py
-    sweep/             design.py (expand a sweep file), enqueue.py, queue.py, worker.py,
-                       status.py, smoke.py
-    analysis/          validation.py: a finished sweep's configurations against its baseline (analyze);
-                       groups.py: results by speaker gender and kind, the gender-routed system;
-                       selection.py: select a configuration, then read its test results (test-report)
-  tests/               python -m unittest discover -s tests -t .
-  scripts/             node: common.sh setup_env.sh check.sh unpack.sh pack.sh worker.sh affect.sh
-                             smoke_enqueue.sh (smoke-test, then enqueue, sweeps in order) and
-                             gpu_schedule.sh (the weekend schedule of 2026-10-03 to 10-05), both 2026-10-03
-                       PC:   push.ps1 pull.ps1 (the node's login is read from node.local.txt beside README.md, not in git)
-  sweeps/              sweep files (JSON): base configuration, folds, stages
-  notebooks/           cnn_3block.ipynb: settings, check, sweep and results of the 3-block CNN
-  data/                not synced as code; see data/README.md
-    iemocap/raw/         verified copies of the received folders, never edited
-    iemocap/manifests/   one manifest per raw folder (path, bytes, SHA-256)
-    iemocap/assembled/   what training reads, with MANIFEST.csv and ASSEMBLY.json
-  artifacts/           results, written on the node and pulled back
-```
+- **Session out:** IEMOCAP has five sessions, each with two speakers. Fold k tests session k, validates on session k + 1 (session 5 on session 1) and trains on the other three, so the test speakers are never in training.
+- **UA (unweighted accuracy):** the recall of each class, averaged with equal weight.
 
-Rules the code enforces (plan 6.1): no .py file outside `src/` and `tests/`; no setting has a
-default; one job writes one folder and nothing overwrites anything; no code picks its own output
-path; results record the code hash and the data manifest hash that produced them.
+## The pipeline
 
-Settings added after runs exist (from 2026-09-26). A settings class lists such fields in
-`ADDED_FIELDS` with the value that does what the code did before the field existed. A settings
-dict must hold every field, or exactly the fields of an earlier date (then the listed values are
-used); anything in between is refused, so a new sweep file cannot forget a new field. The hash
-leaves an added field out while it holds its earlier value (`affect.settings.canonical_plain`), so
-every configuration that ran before keeps its hash and run IDs, whichever form it is written in,
-and the jobs still pending in the queue stay valid. Added so far: speed perturbation and mixup
-(augment), the normalization layer and activation (model cnn), the gender head and evaluation
-segments (train).
+| Step | What happens | Files here | Code |
+|---|---|---|---|
+| 1. Config | I write one sweep file that holds every setting | [`1_config/`](1_config) | [`spec.py`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/runs/spec.py#L43-L80) |
+| 2. Enqueue | the sweep becomes one job per configuration, fold and seed | [`2_job/`](2_job) | [`design.py`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/sweep/design.py#L78-L224) |
+| 3. Run | a GPU worker trains one job and writes its run folder | [`3_run/`](3_run/cf0495a296e9_test_S1_seed1) | [`loop.py`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L308-L501) |
+| 4. Analyze | the configurations are compared on validation files only | [`4_analyze/`](4_analyze/report.txt) | [`validation.py`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/analysis/validation.py#L189-L218) |
+| 5. Select | the choice is written down as a record | [`5_select/`](5_select/selection.json) | [`selection.py`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/analysis/selection.py#L38-L61) |
+| 6. Test report | only now are test files read, and only those of the recorded runs | [`6_test_report/`](6_test_report/report.txt) | [`selection.py`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/analysis/selection.py#L69-L110) |
 
-## Commands
+## 1. The config I send up: [`1_config/`](1_config)
 
-On the PC, from the Cowork session or any shell with Python 3.10 or newer, in this folder:
+[`cnn_confirm_1_sweep_file.json`](1_config/cnn_confirm_1_sweep_file.json) is the sweep that produced the record (night 2). It is the same as [`sweeps/cnn_confirm_1.json`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/sweeps/cnn_confirm_1.json). [`base_cnn_sweep.json`](1_config/base_cnn_sweep.json) is the baseline on its own, with seed 1 only. A sweep file has three parts:
+
+- `folds`: the five session-out folds, `test_S1` to `test_S5`.
+- `base` ([lines 11 to 68](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/sweeps/cnn_confirm_1.json#L11-L68)): every setting of the baseline, with nothing left to a default.
+  - `data`: IEMOCAP, the four merged classes, all 5,531 utterances, one session held out per fold.
+  - `features`: log-mel spectrograms, 25 ms windows every 10 ms, 64 mel bands from 0 to 8,000 Hz, normalized per utterance.
+  - `augment`: all zero, so the baseline has no SpecAugment.
+  - `model`: the CNN, with four blocks of 32, 64, 128 and 256 channels, 3x3 kernels, 2x2 pooling, mean pooling over time and dropout 0.3.
+  - `train`: up to 60 epochs, batch size 32, learning rate 0.001 (2 warmup epochs, then a cosine decay) and weight decay 0.0001. Training stops after 10 epochs without a better validation UA, and each epoch uses random 5 s crops.
+- `stages` ([from line 69](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/sweeps/cnn_confirm_1.json#L69)): what to run. `baseline` runs the base on seeds 1 to 5. `candidates` holds the night's 16 other configurations, each the base with a few settings changed.
+
+When the code reads a job, [`validate_job`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/runs/spec.py#L43-L55) checks every section against its settings class with [`validate`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/settings.py#L217-L242). A missing or unknown setting stops it with an error, so a typo can never fall back to a default. The one allowance is for settings added to the code later: a file written before such a setting existed gets the value the code had then. For the CNN, those are [batch norm and ReLU](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/models/cnn.py#L46-L47).
+
+[`config_hash`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/runs/spec.py#L79-L80) then takes the SHA-256 of the checked settings. Its first 12 characters, `cf0495a296e9`, name the baseline from here on: in the job, the run folder and the record. The same settings always give the same name.
+
+## 2. One job: [`2_job/`](2_job)
+
+On the node, a smoke test runs every configuration of the sweep for one step, and then `enqueue` queues the sweep:
 
 ```
-PYTHONPATH=src python -m unittest discover -s tests -t .
-PYTHONPATH=src python -m affect.cli ingest --dataset iemocap --name <name> --source <folder> --max-seconds 150
-PYTHONPATH=src python -m affect.cli assemble --dataset iemocap \
-    --source IEMOCAP_full_release=<folder> --source collaborator_wav=<folder> \
-    --source phase0_audit=<folder> --max-seconds 150
-PYTHONPATH=src python -m affect.cli verify-data --dataset iemocap
-PYTHONPATH=src python -m affect.cli data-summary --dataset iemocap
-```
-
-`ingest` and `assemble` stop at `--max-seconds` and continue where they stopped when run again;
-repeat until they print `"phase": "finalized"`.
-
-Sending to the node (PC, PowerShell), then installing there:
-
-```
-powershell -ExecutionPolicy Bypass -File "C:\Affective Computing\affect\scripts\push.ps1" -Data
-ssh <user>@<node>                         # the login in node.local.txt
-bash ~/affect_incoming/unpack.sh affect_code_<utc>.tar.gz
-bash ~/affect_incoming/unpack.sh affect_data_iemocap_<utc>.tar
-bash ~/affect/scripts/setup_env.sh        # once: builds ~/venvs/affect
-bash ~/affect/scripts/check.sh            # tests, verify-data, env-check on 4 GPUs
-```
-
-Results back to the PC: `bash ~/affect/scripts/pack.sh <path under artifacts/>` on the node,
-then `pull.ps1 <name it prints>` on the PC. Several folders go in one archive (one pull, one
-password prompt): `cd ~/affect/artifacts && bash ~/affect/scripts/pack.sh runs/<a> runs/<b> sweeps/<a> sweeps/<b>`;
-include each sweep's `sweeps/<id>` record, which `analyze` needs. A sweep pulled before it
-finished (a filler stage still pending) gets the rest later with
-`bash ~/affect/scripts/pack.sh --after <name of the earlier archive> runs/<id>`: only files that
-archive did not hold are packed (pull.ps1 refuses to overwrite), and a file it holds with other
-content stops the pack. The earlier archive must still be in `~/affect_outgoing`. A sweep pulled in
-more than two parts (the LIF screens, which run over several nights) needs every earlier archive of
-it: `--after` may be given once per archive, `pack.sh --after <first> --after <second> runs/<id>`.
-
-Checking that two copies of the code are the same (the "tree digest" quoted in HANDOFF.md and
-VERIFICATION_LOG.md): run in the copy's root folder
-
-```
-find . \( -path ./data -o -path ./artifacts -o -path ./queue -o -path ./logs -o -path ./CODE_VERSIONS.log -o -name __pycache__ \) -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | cut -c1-16,65- | sha256sum | cut -c1-64
-```
-
-`LC_ALL=C` matters: the node's shell sorts file names in English order, which gives a different
-digest for identical files (VERIFICATION_LOG entry 15). In `~/affect_next` also prune
-`-path ./artifacts_preflight`, the 2026-09-26 pre-flight's own results (entry 22). CODE_VERSIONS.log exists only on the node
-(unpack.sh writes it) and is left out.
-
-## Running a sweep on the node
-
-A sweep is a file in `sweeps/` (JSON): the complete base configuration, the folds, and stages
-of configurations to try (plan 5.2). Every command below runs on the node, from any folder.
-
-```
-CUDA_VISIBLE_DEVICES=0 bash ~/affect/scripts/affect.sh smoke --sweep-file sweeps/cnn_screen_2.json --expected-gpus 1
+CUDA_VISIBLE_DEVICES=0 bash ~/affect/scripts/affect.sh smoke --sweep-file sweeps/cnn_confirm_1.json --expected-gpus 1
 bash ~/affect/scripts/affect.sh enqueue --sweep-file sweeps/cnn_confirm_1.json
-bash ~/affect/scripts/affect.sh enqueue --sweep-file sweeps/cnn_screen_2.json
-tmux new -d -s gpu0 "bash ~/affect/scripts/worker.sh 0 3"
-tmux new -d -s gpu1 "bash ~/affect/scripts/worker.sh 1 3"
-tmux new -d -s gpu2 "bash ~/affect/scripts/worker.sh 2 3"
-tmux new -d -s gpu3 "bash ~/affect/scripts/worker.sh 3 3"
-bash ~/affect/scripts/affect.sh status --sweep cnn_confirm_1 --top 20
+```
+
+[`enqueue`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/sweep/enqueue.py#L29-L60) calls [`expand`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/sweep/design.py#L78-L224), which turns the stages into jobs: 17 configurations × 5 folds × 5 seeds = 425 job files in `queue/pending/`. One of them is [`cf0495a296e9_test_S1_seed1.json`](2_job/cf0495a296e9_test_S1_seed1.json). It holds the full settings, the fold `test_S1`, seed 1, the settings hash and the run id.
+
+Fold `test_S1` tests on session 1 (1,085 utterances), validates on session 2 (1,023 utterances) and trains on sessions 3, 4 and 5.
+
+## 3. What one job does: [`3_run/`](3_run/cf0495a296e9_test_S1_seed1)
+
+Workers run in tmux, three to a GPU (`tmux new -d -s gpu0 "bash ~/affect/scripts/worker.sh 0 3"`). Each [worker](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/sweep/worker.py#L71-L107) claims the next job by renaming its file into `running/` ([`take`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/sweep/queue.py#L39-L47)). A rename succeeds for only one worker, so no job runs twice. The worker then calls [`train_job`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L308-L324), which loads the audio and the fold's training, validation and test utterances.
+
+### 3a. From audio to the spectrogram
+
+Each training batch goes through these five steps ([`Step.loss`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L179-L185)):
+
+1. **Crop** ([`crop_arrays`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/data.py#L121-L136)). Each epoch takes a random 5 s crop of every training utterance: 80,000 samples at 16 kHz. A shorter utterance is zero-padded, and its real length is kept so that the padding is ignored later. The 16-bit samples are scaled to the range from −1 to 1.
+2. **Short-time Fourier transform** ([`LogMel.__call__`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/features/logmel.py#L113-L118)). A Hann window of 25 ms (400 samples) moves in steps of 10 ms (160 samples), with a 512-point FFT and centred frames. A 5 s crop gives 1 + 80,000 / 160 = 501 frames, and the power of each frame has 257 frequency bins.
+3. **Mel filterbank** ([built here](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/features/logmel.py#L55-L67), [applied here](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/features/logmel.py#L119)). 64 triangular filters between 0 and 8,000 Hz sum the power into 64 bands. They are spaced on the mel scale, which is linear below 1,000 Hz and logarithmic above it, like human pitch perception. The weights are those of librosa's default filterbank, and a test compares the two.
+4. **Log** ([line 120](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/features/logmel.py#L120)). The log of (mel power + 0.000001), so that silence stays finite.
+5. **Per-utterance normalization** ([`Normalizer`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L68-L72)). Each mel band is scaled to mean 0 and SD 1 over the utterance's real frames, and the padded frames are set to 0 ([line 82](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L82)).
+
+A batch comes out as 32 log-mel spectrograms of 64 bands × 501 frames. Validation and test use whole utterances instead of crops, padded to the longest utterance in each batch ([`eval_batches`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/data.py#L155-L166)).
+
+### 3b. Inside the CNN
+
+For one 5 s crop:
+
+| Layer | Output (channels × bands × frames) | Parameters |
+|---|---|---|
+| Input: the log-mel spectrogram | 1 × 64 × 501 | |
+| Block 1: 3x3 convolution from 1 to 32 channels, batch norm, ReLU, 2x2 max pooling | 32 × 32 × 250 | 288 + 64 |
+| Block 2: the same, 32 to 64 channels | 64 × 16 × 125 | 18,432 + 128 |
+| Block 3: the same, 64 to 128 channels | 128 × 8 × 62 | 73,728 + 256 |
+| Block 4: the same, 128 to 256 channels | 256 × 4 × 31 | 294,912 + 512 |
+| Mean over the 4 frequency rows | 256 × 31 | |
+| Mean over the real frames (mean pooling) | 256 | |
+| Dropout 0.3, then a linear layer to the 4 class scores | 4 | 1,028 |
+| Total | | 389,348 |
+
+In each block, the first number is the convolution's weights and the second is batch norm's scale and shift.
+
+- [`conv_front_end`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/models/cnn.py#L165-L187) builds the four blocks. Each convolution pads its input by one, so it keeps the size, and it has no bias because batch norm follows it. Each 2x2 max pooling halves both frequency and time.
+- [`embed`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/models/cnn.py#L235-L242) averages over frequency, works out which time steps are real rather than padding ([`frames_after`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/models/cnn.py#L203-L210)), and pools over time with [`masked_pool`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/models/cnn.py#L98-L121).
+  - Mean pooling ([lines 102 to 106](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/models/cnn.py#L102-L106)) keeps each channel's mean over time.
+  - SD pooling, `stats` in the settings ([lines 113 to 115](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/models/cnn.py#L113-L115)), keeps the mean and the standard deviation side by side, so 256 channels give 512 numbers.
+- [`classifier_head`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/models/cnn.py#L190-L200) applies dropout and the output layer. The loss is the cross-entropy of the 4 scores ([`soft_cross_entropy`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L138-L144)).
+
+### 3c. Training
+
+- **Optimizer** ([lines 351 to 363](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L351-L363)): AdamW with weight decay 0.0001. The learning rate rises over the first 2 epochs to 0.001, then follows a cosine decay ([`lr_factor`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L40-L46)).
+- **Each epoch** ([lines 383 to 445](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L383-L445)): batches of 32 crops, each with a forward pass, the loss, a backward pass and an optimizer step ([lines 392 to 402](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L392-L402)). Then validation UA is computed on whole utterances ([lines 411 to 412](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L411-L412)).
+- **Keep the best epoch** ([lines 433 to 436](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L433-L436)): when validation UA beats the best so far, the weights are copied.
+- **Stop** ([lines 443 to 445](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L443-L445)): after 10 epochs without a higher validation UA, or at epoch 60.
+- **At the end** ([lines 448 to 501](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/train/loop.py#L448-L501)): the kept weights predict validation and test once, and the run folder's files are returned.
+
+This run kept epoch 6 (validation UA 0.624) and stopped after epoch 16. It trained for 32.6 s on an NVIDIA H100 NVL, with a peak of 918 MiB of GPU memory. From [`metrics_val.json`](3_run/cf0495a296e9_test_S1_seed1/metrics_val.json):
+
+| Epoch | Training loss | Validation UA |
+|---|---|---|
+| 1 | 1.254 | 0.304 |
+| 2 | 1.159 | 0.376 |
+| 3 | 1.099 | 0.471 |
+| 4 | 1.079 | 0.544 |
+| 5 | 1.038 | 0.399 |
+| 6 | 1.047 | 0.624 (kept) |
+| 7 | 1.011 | 0.419 |
+| 8 | 1.002 | 0.544 |
+| 9 | 0.983 | 0.431 |
+| 10 | 0.983 | 0.493 |
+| 11 | 0.967 | 0.594 |
+| 12 | 0.974 | 0.442 |
+| 13 | 0.943 | 0.603 |
+| 14 | 0.945 | 0.449 |
+| 15 | 0.929 | 0.555 |
+| 16 | 0.919 | 0.557 |
+
+### The run folder: [`3_run/cf0495a296e9_test_S1_seed1/`](3_run/cf0495a296e9_test_S1_seed1)
+
+- [`spec.json`](3_run/cf0495a296e9_test_S1_seed1/spec.json): the job from step 2.
+- [`metrics_val.json`](3_run/cf0495a296e9_test_S1_seed1/metrics_val.json): the curve above, the kept epoch, and the validation report at the kept epoch. The report has recall, precision, F1 and the confusion matrix, by class and by kind (improvised or scripted).
+- [`metrics_test.json`](3_run/cf0495a296e9_test_S1_seed1/metrics_test.json): the same report for test. Nothing reads it until step 6.
+- [`efficiency.json`](3_run/cf0495a296e9_test_S1_seed1/efficiency.json): parameters, seconds, epochs and peak GPU memory.
+- [`provenance.json`](3_run/cf0495a296e9_test_S1_seed1/provenance.json): the hashes of the code, the data and the folds, the package versions and the GPU.
+- `predictions_val.csv` and `predictions_test.csv` (not in this repository; see the top): one row per utterance, with its id, speaker, kind, label, the prediction and the 4 class probabilities.
+
+## 4. Compare on validation: [`4_analyze/report.txt`](4_analyze/report.txt)
+
+```
 bash ~/affect/scripts/affect.sh analyze --sweep cnn_confirm_1 --confidence 0.95 --n-boot 2000 --seed 20260926 --top 20
-bash ~/affect/scripts/affect.sh select --sweep cnn_confirm_1 --config <first 12 characters of the chosen hash> --name cnn_final_1 --reason "<one sentence>"
-bash ~/affect/scripts/affect.sh test-report --selection cnn_final_1 --confidence 0.95
 ```
 
-From night 7 the workers start at night with the 10 am stop timer (see "Nights only" below): the line
-is `artifacts/analyses/night7_prep_20260930/lines/8_evening_start.txt`, which also puts back any job a
-dead worker left in `queue/running`.
+[`analyze`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/analysis/validation.py#L189-L218) reads only the validation files of the sweep's 425 runs. Each seed's UA is the mean of its five folds. The baseline line reads validation UA 0.5887 [0.5812, 0.5961] over seeds 1 to 5.
 
-`compare-runs` checks that the code reproduces earlier runs:
-`bash ~/affect/scripts/affect.sh compare-runs --sweep cnn_regression_1 --differences-shown 3`
-compares every finished run of the sweep with every folder of the same run ID in the other sweeps
-(same configuration, fold and seed): validation predictions byte for byte, validation metrics
-exactly without the per-epoch wall-clock times, and the two test files by SHA-256 only, never
-parsed. It ends SAME (exit 0; every run identical to every copy, each with a copy made by other
-code), DIFFERENT (exit 1) or INCOMPLETE (exit 3: runs still to finish, run it again later), and
-saves `artifacts/checks/compare_runs_<sweep>_<utc>/` unless the verdict is INCOMPLETE. A sweep that
-repeats only some earlier runs ends DIFFERENT by design: cnn_confirm_3's base repeats cnn_confirm_2's
-25 runs of the same configuration, and its 19 candidates' 475 runs are new. There the table's rows are
-what count: line 6 of `artifacts/analyses/night7_prep_20260930/lines` prints how many runs have a copy,
-how many of those are the base's, and how many are identical to a copy made by other code, and
-`base_repeat_check.py` in `night7_prep_20260930` checks the saved report run by run. Such a sweep is
-DIFFERENT, and so saved, as soon as one new run exists: the report to check is the one made after all
-of its runs finished (the check fails on any other).
+Every other configuration is compared with the baseline:
 
-`select` records the chosen configuration in `artifacts/selections/<name>/` and refuses unless a
-finished `analyze` report of the sweep exists; a selection is never overwritten. `test-report`
-then reads the test files of that configuration's runs only (test UA, WA, macro-F1 with t
-intervals over seeds, per-class recall, UA by gender and kind) and saves
-`artifacts/test_reports/<name>_<utc>/`. Nothing else in the code reads a test file's values
-(`compare-runs` only hashes them).
+- **The difference in UA.**
+- **A paired bootstrap interval** ([`paired_bootstrap_ua_difference`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/eval/stats.py#L60-L114)). Each of the 2,000 draws resamples every fold's utterances, using the same draw for both configurations, which is what makes it paired. It also resamples each configuration's seeds.
+- **A Holm-adjusted p** ([`holm`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/eval/stats.py#L138-L148)) over all the comparisons, so that one lucky configuration does not count as a finding.
 
-Data protocols. The data section of a configuration names the label set (`four_merged`,
-`four_without_excited`, `five`, `six`, `seven`), the subset (`all`, `impro`, `script`) and the split;
-`src/affect/data/iemocap_splits.py` lists the 21 splits and what each holds out (twelve for
-night 2, nine more from the literature review for night 4: random validation from the
-training sessions, test session as validation (a labeled measurement, never a result), Session 5
-as test, a quarter and three quarters of the training data, a script held out and its control,
-within-speaker folds, and speaker enrollment). A sweep holds
-one data protocol and lists exactly that split's folds (enqueue refuses anything else), so every
-comparison inside a sweep is on the same validation sets. The baseline under every other protocol
-is in `sweeps/cnn_protocol_*.json`, `sweeps/cnn_classes_*.json` and `sweeps/cnn_subset_*.json`
-(600 jobs, priority 90). To smoke-test and enqueue all of them, stopping at the first problem:
+## 5. Record the choice: [`5_select/selection.json`](5_select/selection.json)
 
 ```
-cd ~/affect && for f in sweeps/cnn_protocol_*.json sweeps/cnn_classes_*.json sweeps/cnn_subset_*.json; do CUDA_VISIBLE_DEVICES=0 bash ~/affect/scripts/affect.sh smoke --sweep-file "$f" --expected-gpus 1 && bash ~/affect/scripts/affect.sh enqueue --sweep-file "$f" || { echo "STOPPED AT $f"; break; }; done
+bash ~/affect/scripts/affect.sh select --sweep cnn_confirm_1 --config cf0495a296e9 --name cnn_base_session_out --reason "The baseline, fixed before the run; the session-out reference row for the protocol spread and the gender comparison."
 ```
 
-`analyze`, once a sweep has finished, compares every configuration with the same sweep's baseline
-on the seeds they share: t intervals over seeds, a paired bootstrap that resamples seeds and
-validation utterances, P(better), and Holm's correction across the comparisons. It reads
-validation files only and saves `artifacts/analysis/<sweep_id>_<utc>/` (report.json, report.txt,
-provenance.json). It compares within one sweep, and it needs scipy, so it runs on the node or in
-the Cowork container, not in the PC's Python.
+[`selection_record`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/analysis/selection.py#L38-L61) writes the record: the settings, the validation numbers, the reason, and the analyze report it came from, with that report's SHA-256. A record is never overwritten, and `test-report` refuses to run without one.
 
-Night 1 (2026-09-25) ran `cnn_screen_1`, `cnn_screen_1_seeds` and `cnn_screen_1_random2`, 1,755
-jobs. Night 2 (2026-09-25, 7:17 pm, to 10:26 am the next day) ran, highest priority first: `cnn_confirm_1`, the
-baseline under every new data protocol, `cnn_grid_1`, the planned part of `cnn_screen_2`, the two
-tuning-transfer sweeps, and the 200 extra configurations of `cnn_screen_2` as filler (HANDOFF.md
-has the numbers). Screening uses 3 seeds per configuration from night 2 on. Night 3 (2026-09-26, 1:33 pm, to 3:40 pm the next day)
-ran `cnn_confirm_2` on new seeds, the two confirmed finalists under every protocol (`cnn_tuned_*`),
-`cnn_grid_2` and `cnn_screen_3`; HANDOFF.md has the numbers. Night 4 needs the night-4 code (written 2026-09-26 while night 3 ran):
-`cnn_regression_1` first (configurations that ran before, which must give identical results), the
-normalization-layer and activation study, augmentation and evaluation segments, the gender head,
-the nine literature splits, more mel bands, and the first CNN + Transformer screen; the classical
-sweeps run beside it on CPUs. Night 5 needs no new code, only sweep files: `cnn_transformer_screen_2`
-(priority 100), `cnn_norm_final_2` (99), and the three night-3 finalists under every other split,
-class set and subset (`cnn_tuned2_*`, priorities 98 to 72, one priority per sweep so that each
-finishes before the next starts; the script-held-out pair lists only its 14 folds whose test set
-holds a sad utterance). The 2,896 extras queued since nights 3 and 4 (priority 20) come after them.
+## 6. The test result: [`6_test_report/report.txt`](6_test_report/report.txt)
 
-The queue is meant to hold more than a night's work, most important first: workers always take
-the highest-priority pending job, so a sweep enqueued later at a higher priority runs next without
-stopping anything, as long as it needs no new code. In the morning, either let the rest run or
-`touch ~/affect/queue/STOP` (from night 7 the stop timer does this at 10 am): each worker finishes
-its current job and exits, and the pending jobs wait. Before pushing new code, stop every worker that way and wait until `tmux ls` lists no gpu
-session (a running worker keeps the code it started with). Then `rm ~/affect/queue/STOP` before
-starting workers again, because a worker exits at once while that file exists.
+```
+bash ~/affect/scripts/affect.sh test-report --selection cnn_base_session_out --confidence 0.95
+```
 
-Nights only (from night 7, 2026-09-30, at Harrison's request): the line that starts the workers also
-starts a timer, the tmux session `stopat10`, which sleeps until 10 am Pacific, touches
-`~/affect/queue/STOP` and closes itself. The workers finish their current jobs and exit; the pending
-jobs wait for the next evening, when the same line removes STOP, starts the workers and sets the next
-timer (`artifacts/analyses/night7_prep_20260930/lines/8_evening_start.txt`). The timer is a
-one-shot sleep, not a daemon: `tmux kill-session -t stopat10` cancels it. When the queue empties
-before 10 am the workers exit on their own; the morning check (line 6) then sets STOP and cancels the
-timer itself.
+[`test_report`](https://github.com/basinhopping/affect/blob/d193f4ed296a20d68477549b91f8fe04af4fc78a/src/affect/analysis/selection.py#L69-L110) reads the test files of the record's 25 runs (5 folds × 5 seeds) and nothing else:
 
-`smoke` tries every configuration of the sweep for one training step, runs a short real job (also
-one for the first global- and the first speaker-normalized configuration, whose statistics a real
-job computes itself), and times the base configuration; it must end with SMOKE OK before anything is enqueued.
-`worker.sh <gpu> <processes>` pins its processes to one card with CUDA_VISIBLE_DEVICES; each
-takes jobs until the queue is empty, and every job ends with a line starting JOB DONE or
-JOB FAILED in `logs/worker_gpu<g>_<n>_<utc>.log`. `touch ~/affect/queue/STOP` makes every worker
-exit after its current job. A worker also stops by itself after 5 failed jobs in a row, so a
-problem that fails every job leaves the rest of the queue pending; once it is fixed,
-`bash ~/affect/scripts/affect.sh requeue-failed --sweep cnn_screen_1` puts the failed jobs back.
-Each job writes `artifacts/runs/<sweep_id>/<run_id>/`: spec, validation and test metrics, per-utterance predictions, timing, provenance and its log. `status` reads only
-validation results.
+- test UA 0.5590 [0.5494, 0.5685] (95% t interval over seeds), WA 0.5295 and macro-F1 0.5193;
+- recall by class: neutral 0.423, happy+excited 0.378, angry 0.692 and sad 0.743;
+- every seed and fold. The run in step 3 is seed 1 on `test_S1`, with test UA 0.5941.
 
-Classical baselines (from 2026-09-26; `src/affect/classical/`). openSMILE functionals with an
-SVM or a TPOT search run on CPUs in their own environment, `~/venvs/classical`, so the training
-environment never changes. Once: `bash ~/affect/scripts/setup_classical_env.sh`, then
-`bash ~/affect/scripts/classical.sh classical-selftest --dataset iemocap --label-set four_merged --subset all --n-jobs 4`
-(must end with CLASSICAL SELFTEST OK). Then, once per feature set,
-`bash ~/affect/scripts/classical.sh extract-functionals --dataset iemocap --label-set seven --subset all --feature-set eGeMAPSv02 --workers 16`
-(into `artifacts/features/`), and a classical sweep file (`sweeps/classical_*.json`) runs in its own
-tmux session with `bash ~/affect/scripts/classical.sh classical --sweep-file sweeps/classical_svm_1.json --max-consecutive-failures 3`.
-It records the sweep and writes run folders like the GPU jobs, so `status`, `analyze`, `select` and
-`test-report` read it; running the same file again resumes it. `enqueue` and `smoke` refuse
-classical files.
-
-Nothing in this project uses `/scratch` on the node. The environment is `~/venvs/affect`, model
-weights go to `~/cache/huggingface`, and the data to `~/affect/data/iemocap/assembled`.
+This is the baseline's 0.559 in the meeting results.

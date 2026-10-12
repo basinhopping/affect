@@ -1,0 +1,108 @@
+{
+ "sweep_id": "cnn_confirm_1",
+ "config_hash": "cf0495a296e92ced1ea9122472b8a9d09cd6852b821b785e4798c4ee52de52b3",
+ "stage": "baseline",
+ "label": "base",
+ "settings": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null
+  }
+ },
+ "reason": "The baseline, fixed before the run; the session-out reference row for the protocol spread and the gender comparison.",
+ "validation": {
+  "ua": 0.5886656088834521,
+  "interval": {
+   "n": 5,
+   "mean": 0.5886656088834521,
+   "sd": 0.005982257814901894,
+   "df": 4,
+   "confidence": 0.95,
+   "t_critical": 2.7764451051977934,
+   "half_width": 0.0074279541567367985,
+   "low": 0.5812376547267153,
+   "high": 0.5960935630401889,
+   "min": 0.5791520238481122,
+   "max": 0.5957005002912055
+  },
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "wa": 0.5530253083374138,
+  "macro_f1": 0.5489618102584487,
+  "recall": {
+   "neu": 0.4521044611118249,
+   "hap+exc": 0.43136544953177575,
+   "ang": 0.7079169958376803,
+   "sad": 0.7632755290525276
+  }
+ },
+ "analysis_report": {
+  "folder": "cnn_confirm_1_20260926T192122_132755Z",
+  "sha256": "0752f0a7f624f19249368e04a563e91e3b7d25e7a148e20eca128112a5fe55fc"
+ },
+ "baseline": "cf0495a296e92ced1ea9122472b8a9d09cd6852b821b785e4798c4ee52de52b3",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ]
+}

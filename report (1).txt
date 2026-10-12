@@ -1,0 +1,13 @@
+test results of cnn_confirm_1 / cf0495a296e9 (base), seeds [1, 2, 3, 4, 5]
+chosen because: The baseline, fixed before the run; the session-out reference row for the protocol spread and the gender comparison.
+  test UA 0.5590 [0.5494, 0.5685] (95% t interval over seeds), SD 0.0077
+  test WA 0.5295 [0.5151, 0.5440] (95% t interval over seeds), SD 0.0116
+  test macro-F1 0.5193 [0.4999, 0.5388] (95% t interval over seeds), SD 0.0157
+  recall neu 0.423  hap+exc 0.378  ang 0.692  sad 0.743
+  UA by gender: F 0.5524  M 0.5585
+  UA by kind: impro 0.6102  script 0.4875
+  seed 1: UA 0.5520 | test_S1 0.5941  test_S2 0.5592  test_S3 0.4926  test_S4 0.5116  test_S5 0.6026
+  seed 2: UA 0.5625 | test_S1 0.5679  test_S2 0.6249  test_S3 0.5393  test_S4 0.5599  test_S5 0.5207
+  seed 3: UA 0.5698 | test_S1 0.5753  test_S2 0.5888  test_S3 0.4909  test_S4 0.6185  test_S5 0.5754
+  seed 4: UA 0.5513 | test_S1 0.6255  test_S2 0.5757  test_S3 0.4056  test_S4 0.5559  test_S5 0.5936
+  seed 5: UA 0.5593 | test_S1 0.5597  test_S2 0.6030  test_S3 0.5016  test_S4 0.5214  test_S5 0.6105
