@@ -1,0 +1,74 @@
+{
+ "sweep_id": "classical_lin25_wavlm_base_plus_so3",
+ "description": "A linear SVM on every layer of wavlm_base_plus (week plan G1: other classifiers on the frozen features; night 23 did WavLM Large): classical_pretrained_wavlm_base_plus_so3_1 with only the method changed to a linear SVM (C 0.0001 to 1, class-balanced, chosen on validation per fold); the layer is chosen on validation. Seed 1. How the results are read is fixed in RULE_night25.txt (analyses/night25_prep_20261024) before any run. Runs on CPUs.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "three_no_neutral",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "functionals": {
+   "feature_set": "wavlm_base_plus_l0",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "linear",
+   "c_values": [
+    0.0001,
+    0.001,
+    0.01,
+    0.1,
+    1.0
+   ],
+   "gamma_scales": [],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "layer0",
+   "kind": "base",
+   "priority": 98,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "layers",
+   "kind": "grid",
+   "priority": 98,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "wavlm_base_plus_l1",
+     "wavlm_base_plus_l2",
+     "wavlm_base_plus_l3",
+     "wavlm_base_plus_l4",
+     "wavlm_base_plus_l5",
+     "wavlm_base_plus_l6",
+     "wavlm_base_plus_l7",
+     "wavlm_base_plus_l8",
+     "wavlm_base_plus_l9",
+     "wavlm_base_plus_l10",
+     "wavlm_base_plus_l11",
+     "wavlm_base_plus_l12"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,210 @@
+{
+ "sweep_id": "heads27_rnn",
+ "description": "Night 27 (2026-10-26; Dr. Luitel, 2026-10-21: try my own LIF and Transformer on top of the pretrained model, a sweep to see what is best): a GRU or LSTM trained on WavLM Large's frozen layer 20, every frame (features pretrained_frames; the layer pretrained19c_wavlm_large_so4 chose on validation). The base and 20 random configurations of the head and its training (sampling seed 20261026). Seeds 1 to 3, session out, four classes. Validation only. How the results are read is fixed in RULE_night27.txt (analyses/night27_prep_20261026) before any run. Priority 145 for the base, 135 for the random configurations.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "pretrained_frames",
+   "model": "wavlm_large",
+   "layer": 20,
+   "normalization": "global"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 2,
+   "time_mask_width": 10,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "frames_rnn",
+   "time_pool": 2,
+   "input_dropout": 0.1,
+   "proj_dim": 256,
+   "activation": "relu",
+   "rnn": "gru",
+   "rnn_hidden": 128,
+   "rnn_layers": 2,
+   "bidirectional": true,
+   "rnn_dropout": 0.2,
+   "pooling": "attention",
+   "classifier_hidden": null,
+   "dropout": 0.2
+  },
+  "train": {
+   "epochs": 40,
+   "batch_size": 32,
+   "lr": 0.0005,
+   "weight_decay": 0.01,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 6.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "none",
+   "contrastive": "none",
+   "contrastive_weight": 0.0,
+   "contrastive_temperature": null,
+   "contrastive_dim": null,
+   "external_test": "none",
+   "aux_va": "none",
+   "aux_va_weight": 0.0,
+   "aux_va_loss": "none"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 145,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "random",
+   "kind": "random",
+   "priority": 135,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "n_configs": 20,
+   "sampling_seed": 20261026,
+   "space": {
+    "model.time_pool": [
+     1,
+     2,
+     4
+    ],
+    "model.input_dropout": [
+     0.0,
+     0.1,
+     0.3
+    ],
+    "model.proj_dim": [
+     null,
+     128,
+     256
+    ],
+    "model.rnn": [
+     "gru",
+     "lstm"
+    ],
+    "model.rnn_hidden": [
+     64,
+     128,
+     256
+    ],
+    "model.rnn_layers": [
+     1,
+     2,
+     3
+    ],
+    "model.bidirectional": [
+     true,
+     false
+    ],
+    "model.rnn_dropout": [
+     0.0,
+     0.2,
+     0.4
+    ],
+    "model.pooling": [
+     "mean",
+     "max",
+     "meanmax",
+     "stats",
+     "attention",
+     "last"
+    ],
+    "model.dropout": [
+     0.1,
+     0.2,
+     0.4
+    ],
+    "features.normalization": [
+     "global",
+     "utterance",
+     "none"
+    ],
+    "time_masks": [
+     {
+      "augment.time_masks": 0,
+      "augment.time_mask_width": 0
+     },
+     {
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 10
+     },
+     {
+      "augment.time_masks": 4,
+      "augment.time_mask_width": 20
+     }
+    ],
+    "train.lr": [
+     0.0001,
+     0.0003,
+     0.0005,
+     0.001
+    ],
+    "train.weight_decay": [
+     0.001,
+     0.01,
+     0.05
+    ],
+    "train.batch_size": [
+     16,
+     32
+    ],
+    "train.crop_s": [
+     4.0,
+     6.0,
+     10.0
+    ],
+    "train.label_smoothing": [
+     0.0,
+     0.1
+    ],
+    "train.class_balance": [
+     "weighted_loss",
+     "balanced_sampler",
+     "none"
+    ],
+    "train.epochs": [
+     30,
+     40,
+     60
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,82 @@
+{
+ "sweep_id": "classical_spk23_wavlm_base_plus_speaker_out_partner_train",
+ "description": "Speaker out for the SVM probe of wavlm_base_plus (E2 of the week plan): classical_pretrained_wavlm_base_plus_so4_1 (every layer, the same SVM, per-speaker z-scores, seed 1) with data.split changed to leave_one_speaker_out_partner_in_train and the 10 speaker folds: the test speaker's partner trains and a speaker of another session validates. The layer is chosen again on this protocol's validation. How the results are read is fixed in RULE_night23.txt (analyses/night23_prep_20261022) before any run. Runs on CPUs.",
+ "folds": [
+  "test_Ses01_F",
+  "test_Ses01_M",
+  "test_Ses02_F",
+  "test_Ses02_M",
+  "test_Ses03_F",
+  "test_Ses03_M",
+  "test_Ses04_F",
+  "test_Ses04_M",
+  "test_Ses05_F",
+  "test_Ses05_M"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_speaker_out_partner_in_train"
+  },
+  "functionals": {
+   "feature_set": "wavlm_base_plus_l0",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "layer0",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "layers",
+   "kind": "grid",
+   "priority": 100,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "wavlm_base_plus_l1",
+     "wavlm_base_plus_l2",
+     "wavlm_base_plus_l3",
+     "wavlm_base_plus_l4",
+     "wavlm_base_plus_l5",
+     "wavlm_base_plus_l6",
+     "wavlm_base_plus_l7",
+     "wavlm_base_plus_l8",
+     "wavlm_base_plus_l9",
+     "wavlm_base_plus_l10",
+     "wavlm_base_plus_l11",
+     "wavlm_base_plus_l12"
+    ]
+   }
+  }
+ ]
+}

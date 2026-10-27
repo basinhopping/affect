@@ -1,11 +1,13 @@
 # Send the code (and, with -Data, the assembled dataset) to the node. Run on the PC:
 #     powershell -ExecutionPolicy Bypass -File "C:\Affective Computing\affect\scripts\push.ps1"
 #     powershell -ExecutionPolicy Bypass -File "C:\Affective Computing\affect\scripts\push.ps1" -Data
+#     powershell -ExecutionPolicy Bypass -File "C:\Affective Computing\affect\scripts\push.ps1" -Data -Dataset emofilm
+# (-Dataset, added 2026-10-20, names the assembled dataset that -Data sends; iemocap when not given.)
 # Packs src\, notebooks\, scripts\, tests\ and the top-level files into one archive with its
 # SHA-256, and copies it with unpack.sh to ~/affect_incoming on the node in one scp (one
 # password prompt). Then prints the command to run on the node. Nothing on the node changes
 # until that command runs.
-param([switch]$Data)
+param([switch]$Data, [string]$Dataset = "iemocap")
 $ErrorActionPreference = "Stop"
 $Repo = Split-Path -Parent $PSScriptRoot
 $NodeFile = Join-Path $Repo "node.local.txt"   # the node's login (user@host), one line; kept out of git and off the node
@@ -39,10 +41,11 @@ Write-Host "code archive $Code  sha256 $CodeHash"
 
 $DataName = $null
 if ($Data) {
-    $Assembled = Join-Path $Repo "data\iemocap\assembled"
+    if ($Dataset -cnotmatch '^[a-z0-9_]+$') { throw "-Dataset takes lowercase letters, digits and _ only" }
+    $Assembled = Join-Path $Repo "data\$Dataset\assembled"
     if (-not (Test-Path (Join-Path $Assembled "ASSEMBLY.json"))) { throw "no finished assembly at $Assembled" }
-    $DataName = "affect_data_iemocap_$Stamp.tar"
-    & $Tar -cf (Join-Path $Inc $DataName) -C (Join-Path $Repo "data\iemocap") assembled
+    $DataName = "affect_data_${Dataset}_$Stamp.tar"
+    & $Tar -cf (Join-Path $Inc $DataName) -C (Join-Path $Repo "data\$Dataset") assembled
     if ($LASTEXITCODE -ne 0) { throw "tar failed for the data archive" }
     $DataHash = Write-Hash (Join-Path $Inc $DataName)
     Write-Host "data archive $DataName  sha256 $DataHash"

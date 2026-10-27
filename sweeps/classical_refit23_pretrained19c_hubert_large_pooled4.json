@@ -1,0 +1,53 @@
+{
+ "sweep_id": "classical_refit23_pretrained19c_hubert_large_pooled4",
+ "description": "Retraining on training plus validation (E1 of the week plan; Dr. Luitel's question of 2026-10-21): the record pretrained19c_hubert_large_pooled4 (92be8c5db376, sweep classical_pretrained_hubert_large_pooled4_1) with only protocol.refit changed to train_and_val. Its feature set, C and gamma are chosen on validation exactly as before (validation predictions come from the SVM fitted on training alone); the chosen SVM is then fitted again on training plus validation before it predicts the test fold. Seed 1, the record's folds. How the results are read is fixed in RULE_night23.txt (analyses/night23_prep_20261022) before any run. Runs on CPUs.",
+ "folds": [
+  "test_G1",
+  "test_G2",
+  "test_G3",
+  "test_G4",
+  "test_G5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "utterance_5fold"
+  },
+  "functionals": {
+   "feature_set": "hubert_large_l21",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train_and_val"
+  }
+ },
+ "stages": [
+  {
+   "name": "refit",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  }
+ ]
+}

@@ -1,0 +1,119 @@
+{
+ "sweep_id": "cnn_3block_supcon_confirm_1",
+ "description": "Supervised contrastive learning, confirmation on new seeds: the tuned 3-block CNN as recorded (threeblock_final, e0c211fcced3) and the same with the supervised contrastive loss, weight 1 at temperature 0.1, projection to 128 (night 16's screen took this setting further (supcon16_3block)). Session-out folds, the four classes, seeds 19 to 23, which no neural sweep used before. How the results are read, on validation and then on test, is fixed in RULE_night17.txt (analyses/night17_prep_20261016) before any run. Priority 160.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 40,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 12,
+   "time_masks": 2,
+   "time_mask_width": 30,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 5,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "stats",
+   "classifier_hidden": 128,
+   "dropout": 0.2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 100,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch",
+   "contrastive": "none",
+   "contrastive_weight": 0.0,
+   "contrastive_temperature": null,
+   "contrastive_dim": null
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 160,
+   "seeds": [
+    19,
+    20,
+    21,
+    22,
+    23
+   ]
+  },
+  {
+   "name": "confirmation",
+   "kind": "variants",
+   "priority": 160,
+   "seeds": [
+    19,
+    20,
+    21,
+    22,
+    23
+   ],
+   "variants": {
+    "supcon weight 1, temperature 0.1": {
+     "train.contrastive": "supcon",
+     "train.contrastive_weight": 1.0,
+     "train.contrastive_temperature": 0.1,
+     "train.contrastive_dim": 128
+    }
+   }
+  }
+ ]
+}

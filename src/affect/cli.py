@@ -24,6 +24,20 @@
                   process; running it again resumes (classical environment)
     classical-selftest  openSMILE, the SVM and a tiny TPOT search, once after building the classical
                   environment
+    download-pretrained  a pretrained speech encoder's files from the Hugging Face hub into the cache
+                  (needs huggingface_hub; added 2026-10-19)
+    extract-pretrained  every utterance of a label set through a pretrained encoder, one feature set per
+                  hidden layer, into artifacts/features/ (needs torch and transformers; added 2026-10-19)
+    cold-test     a classical record's SVMs fitted again on IEMOCAP (checked against its runs) and scored on
+                  another corpus, EmoFilm, into artifacts/coldtests/ (classical environment; added 2026-10-20)
+    derive-pretrained  a feature set made from extracted ones: layer_average, the mean of an encoder's layers'
+                  mean vectors (added 2026-10-20)
+    extract-frames  every frame of chosen hidden layers of a pretrained encoder, for the heads trained on them
+                  (features pretrained_frames, models frames_*; needs torch and transformers; added 2026-10-26)
+    va-probe      valence, activation and dominance from each layer of a pretrained encoder: ridge regressions,
+                  penalty and layer chosen on validation by CCC, then test (classical environment; added 2026-10-21)
+    emofilm-finetune  a classical record's SVMs fitted again with EmoFilm's clips of the other film folds added,
+                  and an SVM on EmoFilm alone, each scoring held-out films, beside the cold models (added 2026-10-21)
 
 Every argument is required: nothing here has a default. Commands that copy data take
 --max-seconds, stop cleanly when it is spent, and continue where they stopped when run again.
@@ -265,10 +279,81 @@ def _iemocap_all(args) -> dict:
     return {"label_set": args.label_set, "subset": args.subset, "split": "leave_one_session_out"}
 
 
+def _all_utterances(args) -> dict:
+    """Data settings covering every utterance of a label set, for the feature extractions: IEMOCAP's, or EmoFilm's
+    (a test corpus, with no split; its subset is the language; added 2026-10-20)."""
+    if args.dataset == "emofilm":
+        return {"label_set": args.label_set, "subset": args.subset}
+    return _iemocap_all(args)
+
+
 def cmd_extract_functionals(args) -> int:
     from affect.classical.functionals import extract
 
-    extract(args.dataset, _iemocap_all(args), args.feature_set, args.workers, lambda m: print(m, flush=True))
+    extract(args.dataset, _all_utterances(args), args.feature_set, args.workers, lambda m: print(m, flush=True))
+    return 0
+
+
+def cmd_download_pretrained(args) -> int:
+    from affect.classical.pretrained import download
+
+    snapshot = download(args.model, Path(args.cache_dir).expanduser(), lambda m: print(m, flush=True))
+    print(f"snapshot {snapshot}")
+    return 0
+
+
+def cmd_extract_pretrained(args) -> int:
+    from affect.classical.pretrained import extract
+
+    extract(args.dataset, _all_utterances(args), args.model, Path(args.snapshot).expanduser(), args.device,
+            lambda m: print(m, flush=True), pooling=args.pooling)
+    return 0
+
+
+def cmd_extract_frames(args) -> int:
+    from affect.classical.pretrained import extract_frames
+
+    layers = tuple(int(k) for k in args.layers.split(","))
+    extract_frames(args.dataset, _all_utterances(args), args.model, layers, Path(args.snapshot).expanduser(),
+                   args.device, lambda m: print(m, flush=True))
+    return 0
+
+
+def cmd_derive_pretrained(args) -> int:
+    from affect.classical.pretrained import derive_layer_average
+
+    if args.kind != "layer_average":
+        raise SystemExit(f"derive-pretrained knows layer_average only, got {args.kind!r}")
+    derive_layer_average(args.dataset, args.model, lambda m: print(m, flush=True))
+    return 0
+
+
+def cmd_cold_test(args) -> int:
+    from affect.classical.coldtest import cold_test
+
+    if args.target != "emofilm":
+        raise SystemExit(f"cold-test knows the target emofilm only, got {args.target!r}")
+    cache = {}
+    for name in args.selections:
+        cold_test(name, args.target, {"label_set": args.label_set, "subset": args.subset},
+                  lambda m: print(m, flush=True), cache)
+    return 0
+
+
+def cmd_va_probe(args) -> int:
+    from affect.classical.va import va_probe
+
+    settings = {"label_set": args.label_set, "subset": args.subset, "split": args.split}
+    for model in args.models:
+        va_probe(model, settings, lambda m: print(m, flush=True), dataset=args.dataset)
+    return 0
+
+
+def cmd_emofilm_finetune(args) -> int:
+    from affect.classical.finetune import emofilm_finetune
+
+    for name in args.selections:
+        emofilm_finetune(name, lambda m: print(m, flush=True), n_folds=args.film_folds)
     return 0
 
 
@@ -378,16 +463,67 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("extract-functionals", help="openSMILE functionals of every utterance of a label set")
     p.add_argument("--dataset", required=True)
-    p.add_argument("--label-set", required=True, help="take the largest (iemocap: seven), so every set is covered")
-    p.add_argument("--subset", required=True, help="all, impro or script (take all)")
-    p.add_argument("--feature-set", required=True, help="eGeMAPSv02, ComParE_2016 or emobase")
+    p.add_argument("--label-set", required=True, help="take the largest (iemocap: seven; emofilm: three_no_neutral)")
+    p.add_argument("--subset", required=True, help="take all (iemocap: all, impro or script; emofilm: the language)")
+    p.add_argument("--feature-set", required=True, help="eGeMAPSv02, ComParE_2016 or emobase (openSMILE's)")
     p.add_argument("--workers", type=int, required=True, help="CPU processes")
     p.set_defaults(func=cmd_extract_functionals)
+
+    p = sub.add_parser("download-pretrained", help="a pretrained speech encoder's files into the Hugging Face cache")
+    p.add_argument("--model", required=True, help="a name in affect.classical.settings.PRETRAINED_MODELS")
+    p.add_argument("--cache-dir", required=True, help="the cache folder (the node: ~/cache/huggingface)")
+    p.set_defaults(func=cmd_download_pretrained)
+
+    p = sub.add_parser("extract-pretrained", help="a pretrained encoder's hidden layers for every utterance")
+    p.add_argument("--dataset", required=True)
+    p.add_argument("--label-set", required=True, help="take the largest (iemocap: seven; emofilm: three_no_neutral)")
+    p.add_argument("--subset", required=True, help="take all (iemocap: all, impro or script; emofilm: the language)")
+    p.add_argument("--model", required=True, help="a name in affect.classical.settings.PRETRAINED_MODELS")
+    p.add_argument("--snapshot", required=True, help="the folder download-pretrained printed")
+    p.add_argument("--device", required=True, help="cuda or cpu")
+    p.add_argument("--pooling", required=True, help="mean (<model>_l<k>) or mean_sd (<model>_l<k>_msd)")
+    p.set_defaults(func=cmd_extract_pretrained)
+
+    p = sub.add_parser("extract-frames", help="every frame of chosen layers of a pretrained encoder, for the heads")
+    p.add_argument("--dataset", required=True)
+    p.add_argument("--label-set", required=True, help="iemocap: four_merged holds every utterance the heads train on")
+    p.add_argument("--subset", required=True, help="all")
+    p.add_argument("--model", required=True, help="a name in affect.classical.settings.PRETRAINED_MODELS")
+    p.add_argument("--layers", required=True, help="comma-separated layer numbers, for example 20")
+    p.add_argument("--snapshot", required=True, help="the folder download-pretrained printed")
+    p.add_argument("--device", required=True, help="cuda or cpu")
+    p.set_defaults(func=cmd_extract_frames)
+
+    p = sub.add_parser("derive-pretrained", help="a feature set made from an encoder's extracted layers")
+    p.add_argument("--dataset", required=True)
+    p.add_argument("--model", required=True, help="a name in affect.classical.settings.PRETRAINED_MODELS")
+    p.add_argument("--kind", required=True, help="layer_average (<model>_lavg)")
+    p.set_defaults(func=cmd_derive_pretrained)
 
     p = sub.add_parser("classical", help="run a classical sweep file (SVM or TPOT on functionals)")
     p.add_argument("--sweep-file", required=True)
     p.add_argument("--max-consecutive-failures", type=int, required=True)
     p.set_defaults(func=cmd_classical)
+
+    p = sub.add_parser("cold-test", help="a classical record's SVMs refitted, checked and scored on another corpus")
+    p.add_argument("--selections", nargs="+", required=True, help="selection records (artifacts/selections/<name>)")
+    p.add_argument("--target", required=True, help="the corpus scored: emofilm")
+    p.add_argument("--label-set", required=True, help="the target's label set (emofilm: three_no_neutral)")
+    p.add_argument("--subset", required=True, help="emofilm: all, en, es or it (the language)")
+    p.set_defaults(func=cmd_cold_test)
+
+    p = sub.add_parser("va-probe", help="valence, activation and dominance from a pretrained encoder's layers")
+    p.add_argument("--models", nargs="+", required=True, help="pretrained encoders whose <model>_l<k> sets exist")
+    p.add_argument("--dataset", required=True, help="iemocap")
+    p.add_argument("--label-set", required=True, help="the utterances used, for example four_merged")
+    p.add_argument("--subset", required=True)
+    p.add_argument("--split", required=True, help="leave_one_session_out or utterance_5fold")
+    p.set_defaults(func=cmd_va_probe)
+
+    p = sub.add_parser("emofilm-finetune", help="a classical record's SVMs fitted again with EmoFilm's other films")
+    p.add_argument("--selections", nargs="+", required=True, help="selection records (artifacts/selections/<name>)")
+    p.add_argument("--film-folds", type=int, required=True, help="EmoFilm's films in this many folds, for example 5")
+    p.set_defaults(func=cmd_emofilm_finetune)
 
     p = sub.add_parser("classical-selftest", help="check openSMILE, the SVM and TPOT in the classical environment")
     p.add_argument("--dataset", required=True)

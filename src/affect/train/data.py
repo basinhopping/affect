@@ -88,6 +88,60 @@ def prepare(data_name: str, data_settings) -> Prepared:
     return prepared
 
 
+@dataclasses.dataclass
+class External:
+    """A test corpus for train.external_test (added 2026-10-20): its utterances, audio and labels, and no folds."""
+    dataset: str
+    utterances: list
+    audio: list
+    labels: np.ndarray
+    class_names: tuple
+    manifest_sha256: str
+    sample_rate: int
+
+
+_EXTERNAL: dict = {}
+# The label set each test corpus is read in (train.external_test): EmoFilm has only three_no_neutral, whose classes
+# a model of IEMOCAP's three_no_neutral or of a set holding those classes (four_merged, added 2026-10-24) predicts.
+EXTERNAL_LABEL_SETS = {"emofilm": "three_no_neutral"}
+
+
+def prepare_external(data_name: str, label_set: str) -> External:
+    """Every utterance of a test corpus (EmoFilm: all three languages) in the given label set, read once per
+    process. Its dataset has no fold scheme or vote distributions, so prepare() is not used."""
+    from affect.settings import validate
+
+    key = (data_name, label_set)
+    if key in _EXTERNAL:
+        return _EXTERNAL[key]
+    entry = DATASETS.get(data_name)
+    settings = validate(entry.settings_class, {"label_set": label_set, "subset": "all"}, "external test")
+    ds = entry.target()
+    utterances = ds.utterances(settings)
+    class_names = tuple(ds.class_order(settings))
+    rates = {u.sample_rate for u in utterances}
+    if len(rates) != 1:
+        raise ValueError(f"mixed sample rates {rates}")
+    root = paths.assembled_dir(data_name)
+    _, manifest_sha = sha256_file(root / "MANIFEST.csv")
+    external = External(dataset=data_name, utterances=utterances, audio=_audio(root, utterances),
+                        labels=np.array([class_names.index(u.label) for u in utterances], dtype=np.int64),
+                        class_names=class_names, manifest_sha256=manifest_sha, sample_rate=rates.pop())
+    _EXTERNAL[key] = external
+    return external
+
+
+def job_source(job, prepared) -> tuple:
+    """(what a job's features read, one array per row of prepared; its rate per second): the int16 samples and the
+    sample rate for a log-mel job, the pretrained encoder's frames and its frame rate for a frames job (added
+    2026-10-26; affect.features.frames). crop_s and the evaluation segments are converted with that rate."""
+    if job.features_name == "pretrained_frames":
+        from affect.features import frames
+
+        return frames.source(prepared.dataset, job.features, prepared.utterances), frames.frame_rate(job.features)
+    return prepared.audio, prepared.sample_rate
+
+
 def speaker_index(utterances: list) -> tuple:
     """(speaker names in sorted order, the speaker's position in that order for every row)."""
     names = tuple(sorted({u.speaker for u in utterances}))
@@ -118,11 +172,20 @@ def class_weights(labels: np.ndarray, n_classes: int) -> np.ndarray:
     return (labels.shape[0] / (n_classes * counts)).astype(np.float32)
 
 
+def _scale(arrays: list, waves: np.ndarray) -> np.ndarray:
+    """int16 samples to [-1, 1); anything else (a pretrained encoder's frames, added 2026-10-26) as it is."""
+    if np.issubdtype(arrays[0].dtype, np.integer):
+        waves /= 32768.0
+    return waves
+
+
 def crop_arrays(arrays: list, crop_len: int, rng: np.random.Generator) -> tuple:
     """A random crop of crop_len samples from each int16 array, zero-padded when shorter.
     Returns (waves float32 [batch, crop_len] in [-1, 1), real sample counts [batch]).
-    Draws one start per array longer than crop_len, in order, and nothing else."""
-    waves = np.zeros((len(arrays), crop_len), dtype=np.float32)
+    Draws one start per array longer than crop_len, in order, and nothing else. Since 2026-10-26 an array may
+    also be a pretrained encoder's frames [frames, width] (float16): crop_len then counts frames, the crops are
+    float32 [batch, crop_len, width] and keep their values."""
+    waves = np.zeros((len(arrays), crop_len) + tuple(arrays[0].shape[1:]), dtype=np.float32)
     valid = np.empty(len(arrays), dtype=np.int64)
     for j, a in enumerate(arrays):
         if a.shape[0] > crop_len:
@@ -132,8 +195,7 @@ def crop_arrays(arrays: list, crop_len: int, rng: np.random.Generator) -> tuple:
         else:
             waves[j, :a.shape[0]] = a
             valid[j] = a.shape[0]
-    waves /= 32768.0
-    return waves, valid
+    return _scale(arrays, waves), valid
 
 
 def crop_batch(audio: list, rows: np.ndarray, crop_len: int, rng: np.random.Generator) -> tuple:
@@ -159,11 +221,10 @@ def eval_batches(audio: list, rows: np.ndarray, batch_size: int):
     for start in range(0, len(order), batch_size):
         positions = np.array(order[start:start + batch_size], dtype=np.int64)
         lengths = np.array([audio[rows[k]].shape[0] for k in positions], dtype=np.int64)
-        waves = np.zeros((positions.shape[0], int(lengths.max())), dtype=np.float32)
+        waves = np.zeros((positions.shape[0], int(lengths.max())) + tuple(audio[rows[0]].shape[1:]), dtype=np.float32)
         for j, k in enumerate(positions):
             waves[j, :lengths[j]] = audio[rows[k]]
-        waves /= 32768.0
-        yield positions, waves, lengths
+        yield positions, _scale(audio, waves), lengths
 
 
 def segment_starts(n_samples: int, segment: int, hop: int) -> list:
@@ -194,14 +255,29 @@ def segment_batches(audio: list, rows: np.ndarray, batch_size: int, segment: int
         chunk = items[first:first + batch_size]
         positions = np.array([k for k, _, _ in chunk], dtype=np.int64)
         lengths = np.array([length for _, _, length in chunk], dtype=np.int64)
-        waves = np.zeros((len(chunk), int(lengths.max())), dtype=np.float32)
+        waves = np.zeros((len(chunk), int(lengths.max())) + tuple(audio[rows[0]].shape[1:]), dtype=np.float32)
         for j, (k, start, length) in enumerate(chunk):
             waves[j, :length] = audio[rows[k]][start:start + length]
-        waves /= 32768.0
-        yield positions, waves, lengths
+        yield positions, _scale(audio, waves), lengths
 
 
 GENDERS = ("F", "M")
+VA_SCALES = ("v", "a")      # valence and activation (arousal), the order of the valence and activation head's outputs
+
+
+def va_ratings(utterances: list) -> np.ndarray:
+    """[rows, 2] float64: each utterance's valence and activation rating, extra "v" and "a" (IEMOCAP's summary files:
+    the means over the evaluators on its 1 to 5 scales; train.aux_va, added 2026-10-24). Raises if a rating is missing,
+    is not a finite number, or lies outside 0 to 6 (the check of affect.classical.va)."""
+    out = np.empty((len(utterances), len(VA_SCALES)), dtype=np.float64)
+    for i, u in enumerate(utterances):
+        for j, scale in enumerate(VA_SCALES):
+            value = u.extra.get(scale)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value) \
+                    or not 0 <= value <= 6:
+                raise ValueError(f"{u.utt_id}: rating {scale!r} is {value!r}, not a number from 0 to 6")
+            out[i, j] = float(value)
+    return out
 
 
 def gender_index(utterances: list) -> np.ndarray:

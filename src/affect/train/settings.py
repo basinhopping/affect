@@ -5,6 +5,14 @@ Settings written before then lack them, which means no gender head and whole-utt
 evaluation, and they keep their configuration hashes (affect.settings, ADDED_FIELDS).
 eval_train was added on 2026-10-03 (Dr. Luitel asked for the training accuracy, to see over- or
 underfitting); settings without it mean "none", what the loop did before, with the same hashes.
+contrastive, contrastive_weight, contrastive_temperature and contrastive_dim were added on 2026-10-15
+(Dr. Luitel asked on 2026-10-12 whether contrastive learning raises the accuracy); settings without
+them mean no contrastive loss, what the loop did before, with the same hashes.
+external_test was added on 2026-10-20 (her third request: the best three-class models tested cold on
+EmoFilm); settings without it mean none, what the loop did before, with the same hashes.
+aux_va, aux_va_weight and aux_va_loss were added on 2026-10-24 (Dr. Luitel asked on 2026-10-21 whether the models can
+be trained with valence and arousal); settings without them mean no such output, what the loop did before, with the
+same hashes.
 """
 import dataclasses
 from typing import Literal
@@ -44,10 +52,51 @@ class TrainSettings:
     # epoch's training UA, WA, macro-F1 and mean NLL are recorded beside the validation ones, with the
     # full report of the chosen epoch. Only measured: the weights, the epoch chosen and every validation
     # and test number are the same as with none. none: no training pass (the loop before 2026-10-03).
+    contrastive: Literal["none", "supcon"]
+    # supcon: a supervised contrastive loss (Khosla et al. 2020, equation 2, the form with the mean over
+    # the positives outside the log) on the model's pooled summary (model.embed), through a projection
+    # head used in training only (a linear layer as wide as the summary, ReLU, a linear layer to
+    # contrastive_dim outputs; the loss L2-normalises each output), added to the emotion loss with weight
+    # contrastive_weight. In each training batch every utterance is an anchor: the others with its label
+    # (the hard label, also with soft targets; mixup is refused with it, see runs.spec.check_job) are its
+    # positives, and every other utterance of the batch is in the denominator, at temperature
+    # contrastive_temperature. An anchor with no other utterance of its label in the batch is left out,
+    # and the loss is the mean over the other anchors. One view of each utterance (the crop and masks of
+    # the batch), no second view. Validation and test never use the projection head. none: no
+    # contrastive loss (the loop before 2026-10-15).
+    contrastive_weight: float      # weight of the contrastive loss added to the emotion loss; 0 with none
+    contrastive_temperature: float | None   # the temperature; None with none
+    contrastive_dim: int | None    # outputs of the projection head; None with none
+    external_test: Literal["none", "emofilm"]
+    # emofilm: after the test set, the chosen epoch's model also scores EmoFilm (affect.data.emofilm, its 726
+    # happiness, anger and sadness clips as hap+exc, ang and sad), a corpus it never trains or chooses on, and the
+    # run folder gets metrics_emofilm.json and predictions_emofilm.csv. Needs an IEMOCAP label set that holds those
+    # three classes and a normalization that uses no IEMOCAP speaker (runs.spec.check_job). A model with more
+    # classes (four_merged's neu, added 2026-10-24) is scored on the most probable of the three, and also with its
+    # other classes counted as errors (train.loop.external_files). Only measured: it changes no weight, random draw,
+    # epoch or IEMOCAP number. none: no external test (the loop before 2026-10-20).
+    aux_va: Literal["none", "multitask"]
+    # multitask (added 2026-10-24): one more output predicts each utterance's valence and activation (arousal),
+    # IEMOCAP's ratings on its 1 to 5 scales (the summary files' means over the evaluators, extra "v" and "a"), from
+    # the model's pooled summary (model.embed) through dropout and one linear layer (affect.models.heads, the
+    # gender head's multitask form, two outputs). Both ratings are standardized with the mean and SD of the fold's
+    # training utterances; the output's loss (aux_va_loss) is added to the emotion loss with weight aux_va_weight, so
+    # the shared layers learn the two dimensions too. Emotion alone picks the epoch. The leak-test control shuffles
+    # the ratings with the labels. Validation and test also get each dimension's concordance correlation with the
+    # ratings. none: no such output (the loop before 2026-10-24).
+    aux_va_weight: float           # weight of the valence and activation loss; 0 with none
+    aux_va_loss: Literal["none", "ccc", "mse"]
+    # ccc: 1 minus the mean over the two dimensions of the batch's concordance correlation coefficient (Lin 1989)
+    # between the outputs and the standardized ratings; mse: the mean squared error on the standardized ratings;
+    # none with aux_va none.
 
     ADDED_FIELDS = (("2026-09-26", {"aux_gender": "none", "aux_gender_weight": 0.0, "eval_segment_s": None,
                                     "eval_segment_hop_s": None}),
-                    ("2026-10-03", {"eval_train": "none"}))
+                    ("2026-10-03", {"eval_train": "none"}),
+                    ("2026-10-15", {"contrastive": "none", "contrastive_weight": 0.0, "contrastive_temperature": None,
+                                    "contrastive_dim": None}),
+                    ("2026-10-20", {"external_test": "none"}),
+                    ("2026-10-24", {"aux_va": "none", "aux_va_weight": 0.0, "aux_va_loss": "none"}))
 
 
 def check(settings: TrainSettings) -> None:
@@ -77,3 +126,23 @@ def check(settings: TrainSettings) -> None:
             raise ValueError("train: eval_segment_s must be positive")
         if not 0 < settings.eval_segment_hop_s <= settings.eval_segment_s:
             raise ValueError("train: eval_segment_hop_s must be above 0 and at most eval_segment_s")
+    if settings.contrastive == "none":
+        if (settings.contrastive_weight != 0 or settings.contrastive_temperature is not None
+                or settings.contrastive_dim is not None):
+            raise ValueError("train: with contrastive none, contrastive_weight is 0 and contrastive_temperature and "
+                             "contrastive_dim are None")
+    else:
+        if not settings.contrastive_weight > 0:
+            raise ValueError(f"train: contrastive {settings.contrastive!r} needs contrastive_weight above 0")
+        if settings.contrastive_temperature is None or not settings.contrastive_temperature > 0:
+            raise ValueError(f"train: contrastive {settings.contrastive!r} needs contrastive_temperature above 0")
+        if settings.contrastive_dim is None or settings.contrastive_dim < 1:
+            raise ValueError(f"train: contrastive {settings.contrastive!r} needs contrastive_dim of at least 1")
+    if settings.aux_va == "none":
+        if settings.aux_va_weight != 0 or settings.aux_va_loss != "none":
+            raise ValueError("train: with aux_va none, aux_va_weight is 0 and aux_va_loss is none")
+    else:
+        if not settings.aux_va_weight > 0:
+            raise ValueError(f"train: aux_va {settings.aux_va!r} needs aux_va_weight above 0")
+        if settings.aux_va_loss == "none":
+            raise ValueError(f"train: aux_va {settings.aux_va!r} needs aux_va_loss ccc or mse")

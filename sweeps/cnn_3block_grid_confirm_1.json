@@ -1,0 +1,152 @@
+{
+ "sweep_id": "cnn_3block_grid_confirm_1",
+ "description": "Confirmation of cnn_3block_grid_1 (night 13) on new seeds: her 3-block CNN (the grid's base, 66d8d74d5623), the grid's best (4bc9f540edcb) and second (412742680d02) on validation, and the tuned 3-block CNN as recorded (threeblock_final, e0c211fcced3); session-out folds, the four classes, seeds 11 to 15, which no CNN sweep used before (seeds 6 to 10 chose the tuned 3-block CNN, so a comparison with it there would favour it). How the results are read, on validation and then on test, is fixed in RULE_night14.txt (analyses/night14_prep_20261013) before any run. Priority 130.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 130,
+   "seeds": [
+    11,
+    12,
+    13,
+    14,
+    15
+   ]
+  },
+  {
+   "name": "confirm",
+   "kind": "variants",
+   "priority": 130,
+   "seeds": [
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "variants": {
+    "grid best": {
+     "model.pooling": "stats",
+     "train.epochs": 100,
+     "train.early_stopping_patience": 20,
+     "model.channels": [
+      64,
+      128,
+      256
+     ],
+     "model.dropout": 0.2,
+     "features.n_mels": 40
+    },
+    "grid second": {
+     "model.pooling": "stats",
+     "train.epochs": 100,
+     "train.early_stopping_patience": 20,
+     "model.channels": [
+      64,
+      128,
+      256
+     ],
+     "features.n_mels": 40
+    },
+    "tuned 3-block CNN (threeblock_final)": {
+     "features.n_mels": 40,
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 12,
+     "augment.time_masks": 2,
+     "augment.time_mask_width": 30,
+     "model.channels": [
+      64,
+      128,
+      256
+     ],
+     "model.kernel_size": 5,
+     "model.pooling": "stats",
+     "model.classifier_hidden": 128,
+     "model.dropout": 0.2,
+     "train.epochs": 100,
+     "train.batch_size": 16,
+     "train.early_stopping_patience": 20,
+     "train.crop_s": 10.0
+    }
+   }
+  }
+ ]
+}

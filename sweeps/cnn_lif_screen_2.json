@@ -1,0 +1,322 @@
+{
+ "sweep_id": "cnn_lif_screen_2",
+ "description": "A wider search of the CNN + LIF hybrid (night 25; Harrison, 2026-10-23: more sweeps of the LIF, there are a few ways to build it): lif_final's recorded settings (553e54c97626) as the base, seeds 1 to 3, then 40 random configurations over a wider space than cnn_lif_screen_1 and the two grids: four- and five-block and wider front ends, averaged or flattened frequencies, one to three spiking layers of 128 to 512 neurons, recurrence, every normalization, leak, threshold, reset and surrogate option, the readout's leak, the activity penalty, 40 to 64 mel bands, SpecAugment on or off, hard or soft labels, label smoothing, learning rates, sampling, crops, epochs and schedules. 3 seeds per configuration, session out, four classes. Priority 90, after the LIF and Transformer recipes and before the two CNNs' recipes and the CNN + Transformer search. Validation only. How the results are read is fixed in RULE_night25.txt (analyses/night25_prep_20261024) before any run.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn_lif",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "freq_reduce": "mean",
+   "time_pool": 4,
+   "lif_hidden": [
+    256
+   ],
+   "recurrent": false,
+   "lif_norm": "layer",
+   "lif_dropout": 0.3,
+   "beta": 0.8,
+   "learn_beta": "none",
+   "threshold": 0.5,
+   "reset": "zero",
+   "detach_reset": false,
+   "surrogate": "boxcar",
+   "surrogate_slope": 1.0,
+   "readout_beta": 0.5,
+   "rate_weight": 1.0,
+   "rate_target": 0.2,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 5.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch"
+  }
+ },
+ "stages": [
+  {
+   "name": "finalist",
+   "kind": "base",
+   "priority": 90,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "random",
+   "kind": "random",
+   "priority": 90,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "n_configs": 40,
+   "sampling_seed": 20261024,
+   "space": {
+    "model.channels": [
+     [
+      32,
+      64,
+      128,
+      256
+     ],
+     [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     [
+      48,
+      96,
+      192,
+      384
+     ],
+     [
+      64,
+      128,
+      256,
+      512
+     ]
+    ],
+    "model.freq_reduce": [
+     "mean",
+     "flatten"
+    ],
+    "model.time_pool": [
+     1,
+     2,
+     4
+    ],
+    "model.lif_hidden": [
+     [
+      128
+     ],
+     [
+      256
+     ],
+     [
+      512
+     ],
+     [
+      256,
+      256
+     ],
+     [
+      512,
+      256
+     ],
+     [
+      256,
+      128
+     ],
+     [
+      256,
+      256,
+      256
+     ]
+    ],
+    "model.recurrent": [
+     false,
+     true
+    ],
+    "model.lif_norm": [
+     "none",
+     "batch",
+     "layer"
+    ],
+    "model.lif_dropout": [
+     0.0,
+     0.1,
+     0.3
+    ],
+    "model.beta": [
+     0.8,
+     0.9,
+     0.95
+    ],
+    "model.learn_beta": [
+     "none",
+     "layer",
+     "neuron"
+    ],
+    "model.threshold": [
+     0.5,
+     1.0,
+     2.0
+    ],
+    "model.reset": [
+     "subtract",
+     "zero"
+    ],
+    "model.detach_reset": [
+     false,
+     true
+    ],
+    "model.surrogate": [
+     "atan",
+     "fast_sigmoid",
+     "sigmoid",
+     "boxcar"
+    ],
+    "model.surrogate_slope": [
+     1.0,
+     2.0,
+     5.0
+    ],
+    "model.readout_beta": [
+     0.0,
+     0.5,
+     0.9,
+     0.97
+    ],
+    "model.rate_weight": [
+     0.0,
+     0.5,
+     1.0
+    ],
+    "model.rate_target": [
+     0.05,
+     0.1,
+     0.2
+    ],
+    "model.dropout": [
+     0.2,
+     0.3,
+     0.5
+    ],
+    "features.n_mels": [
+     40,
+     48,
+     64
+    ],
+    "specaugment": [
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 8,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 20
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 12,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 30
+     },
+     {
+      "augment.freq_masks": 0,
+      "augment.freq_mask_width": 0,
+      "augment.time_masks": 0,
+      "augment.time_mask_width": 0
+     }
+    ],
+    "train.labels": [
+     "hard",
+     "soft"
+    ],
+    "train.label_smoothing": [
+     0.0,
+     0.1
+    ],
+    "train.lr": [
+     0.0003,
+     0.0005,
+     0.001
+    ],
+    "train.weight_decay": [
+     0.0001,
+     0.001,
+     0.01
+    ],
+    "train.batch_size": [
+     16,
+     32
+    ],
+    "train.crop_s": [
+     5.0,
+     7.5,
+     10.0
+    ],
+    "train.class_balance": [
+     "weighted_loss",
+     "balanced_sampler",
+     "none"
+    ],
+    "train.epochs": [
+     60,
+     100
+    ],
+    "train.schedule": [
+     "cosine",
+     "constant"
+    ]
+   }
+  }
+ ]
+}

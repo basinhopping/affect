@@ -375,10 +375,11 @@ class TestSpikingModels(unittest.TestCase):
         torch.manual_seed(0)
         model = MODELS.get("cnn_lif").target(job.model, job.features.n_mels, 4).train()
         waves = (np.random.default_rng(1).standard_normal((4, 16000)) * 0.1).astype(np.float32)
-        loss, emotion, gender = Step(job, model, None, feats, Normalizer("utterance"), None, device).loss(
+        loss, emotion, gender, contrastive = Step(job, model, None, feats, Normalizer("utterance"), None, device).loss(
             waves, np.array([16000, 9000, 16000, 12000]), np.arange(4), np.eye(4, dtype=np.float32),
             None, torch.Generator().manual_seed(0), np.random.default_rng(2))
         self.assertIsNone(gender)
+        self.assertIsNone(contrastive)
         self.assertAlmostEqual(loss.item(), emotion.item() + model.activity_penalty().item(), places=5)
         loss.backward()
 

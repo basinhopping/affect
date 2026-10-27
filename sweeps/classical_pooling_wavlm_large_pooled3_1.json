@@ -1,0 +1,102 @@
+{
+ "sweep_id": "classical_pooling_wavlm_large_pooled3_1",
+ "description": "Night 21b (2026-10-20): wavlm_large on pooled3, its sweep classical_pretrained_wavlm_large_pooled3_1 of nights 19b and 19c with two new poolings: each layer's mean and SD over its frames (wavlm_large_l<k>_msd, layers 0 to 24) and the mean of every layer's mean vector (wavlm_large_lavg). Same SVM, folds and seed. Fixed by RULE_night21b.txt (analyses/night21b_prep_20261020).",
+ "folds": [
+  "test_G1",
+  "test_G2",
+  "test_G3",
+  "test_G4",
+  "test_G5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "three_no_neutral",
+   "subset": "all",
+   "split": "utterance_5fold"
+  },
+  "functionals": {
+   "feature_set": "wavlm_large_l0_msd",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "layer0",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "layers",
+   "kind": "grid",
+   "priority": 100,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "wavlm_large_l1_msd",
+     "wavlm_large_l2_msd",
+     "wavlm_large_l3_msd",
+     "wavlm_large_l4_msd",
+     "wavlm_large_l5_msd",
+     "wavlm_large_l6_msd",
+     "wavlm_large_l7_msd",
+     "wavlm_large_l8_msd",
+     "wavlm_large_l9_msd",
+     "wavlm_large_l10_msd",
+     "wavlm_large_l11_msd",
+     "wavlm_large_l12_msd",
+     "wavlm_large_l13_msd",
+     "wavlm_large_l14_msd",
+     "wavlm_large_l15_msd",
+     "wavlm_large_l16_msd",
+     "wavlm_large_l17_msd",
+     "wavlm_large_l18_msd",
+     "wavlm_large_l19_msd",
+     "wavlm_large_l20_msd",
+     "wavlm_large_l21_msd",
+     "wavlm_large_l22_msd",
+     "wavlm_large_l23_msd",
+     "wavlm_large_l24_msd"
+    ]
+   }
+  },
+  {
+   "name": "average",
+   "kind": "variants",
+   "priority": 100,
+   "seeds": [
+    1
+   ],
+   "variants": {
+    "lavg": {
+     "functionals.feature_set": "wavlm_large_lavg"
+    }
+   }
+  }
+ ]
+}

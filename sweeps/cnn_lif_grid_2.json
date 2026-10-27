@@ -1,0 +1,146 @@
+{
+ "sweep_id": "cnn_lif_grid_2",
+ "description": "A second full grid on the CNN + LIF hybrid around its finalist (lif_final, 553e54c97626), over the five settings with the next largest spreads in its random search (cnn_lif_screen_1) after cnn_lif_grid_1's six: threshold 0.5 or 1.0; readout beta 0.5 or 0.0; beta 0.8 or 0.9; LIF dropout 0.3 or 0.0; learned beta none or per layer. The finalist's value first; the second is the random stage's best where the finalist's is not, and its second best where it is. 32 configurations, seeds 1 to 3, session-out folds, four classes: 480 jobs. Validation only: how it is read is fixed in RULE_night19.txt (analyses/night19_prep_20261018) before any run, and no test file is read. Priority 150.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn_lif",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "freq_reduce": "mean",
+   "time_pool": 4,
+   "lif_hidden": [
+    256
+   ],
+   "recurrent": false,
+   "lif_norm": "layer",
+   "lif_dropout": 0.3,
+   "beta": 0.8,
+   "learn_beta": "none",
+   "threshold": 0.5,
+   "reset": "zero",
+   "detach_reset": false,
+   "surrogate": "boxcar",
+   "surrogate_slope": 1.0,
+   "readout_beta": 0.5,
+   "rate_weight": 1.0,
+   "rate_target": 0.2,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 5.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch",
+   "contrastive": "none",
+   "contrastive_weight": 0.0,
+   "contrastive_temperature": null,
+   "contrastive_dim": null
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 150,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "grid",
+   "kind": "grid",
+   "priority": 150,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.threshold": [
+     0.5,
+     1.0
+    ],
+    "model.readout_beta": [
+     0.5,
+     0.0
+    ],
+    "model.beta": [
+     0.8,
+     0.9
+    ],
+    "model.lif_dropout": [
+     0.3,
+     0.0
+    ],
+    "model.learn_beta": [
+     "none",
+     "layer"
+    ]
+   }
+  }
+ ]
+}

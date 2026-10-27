@@ -1,0 +1,104 @@
+{
+ "sweep_id": "cnn_transformer_final_1_gender_train_female",
+ "description": "Gender protocol on the CNN + Transformer (cnn_transformer_final_1, 47ce7034379e), for Dr. Luitel's sixth request of the meeting of 2026-10-12: its recorded settings unchanged, trained and validated on the female speakers only (leave_one_session_out_train_female); the test is the whole held-out session, so each run gives the UA on male, female and all test speakers. Session folds, the four classes, seeds 6 to 10, beside the finalist's own runs trained on everyone (cnn_transformer_confirm_1). How the results are read is fixed in RULE_night15.txt (analyses/night15_prep_20261014) before any run. Priority 143.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out_train_female"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 48,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 12,
+   "time_masks": 2,
+   "time_mask_width": 30,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn_transformer",
+   "channels": [
+    48,
+    96,
+    192,
+    384
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "freq_reduce": "flatten",
+   "d_model": 32,
+   "n_heads": 4,
+   "n_layers": 1,
+   "ff_dim": 512,
+   "transformer_dropout": 0.1,
+   "transformer_activation": "gelu",
+   "norm_first": true,
+   "positional": "none",
+   "pooling": "stats",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0001,
+   "weight_decay": 0.001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 143,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  }
+ ]
+}

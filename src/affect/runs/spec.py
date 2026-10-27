@@ -8,8 +8,9 @@
 
 A missing or unknown section raises, and so does anything the sections' own validation refuses.
 `check_job` then applies the checks that need several sections at once (a window longer than
-n_fft, pooling that leaves no mel bands), so a bad value fails when the sweep is enqueued, not
-at 3 a.m. The validated settings are hashed; the hash, the fold and the seed name the run.
+n_fft, pooling that leaves no mel bands, a contrastive loss with mixup), so a bad value fails when
+the sweep is enqueued, not at 3 a.m. The validated settings are hashed; the hash, the fold and the
+seed name the run.
 
 `plain` gives every setting, including fields added after runs existed (settings.ADDED_FIELDS);
 `canonical`, which is what gets hashed, leaves an added field out while it holds its value from
@@ -90,20 +91,71 @@ def control_of(settings: dict) -> str:
     return settings["train"]["control"] if "train" in settings else settings["protocol"]["control"]
 
 
+# Models that read a log-mel image (a convolutional front end), and models that read a pretrained encoder's frames
+# (affect.models.frames, added 2026-10-26); each needs its own kind of features.
+LOGMEL_MODELS = ("cnn", "cnn_transformer", "cnn_lif", "snn", "cnn_rnn")
+FRAME_MODELS = ("frames_pool", "frames_transformer", "frames_lif", "frames_rnn")
+
+
+def input_width(job: Job) -> int:
+    """The width of what the model reads at each step: the mel bands of a log-mel job, the encoder's hidden size of a
+    frames job (added 2026-10-26)."""
+    if job.features_name == "pretrained_frames":
+        from affect.features import frames
+
+        return frames.width(job.features)
+    return job.features.n_mels
+
+
 def check_job(job: Job, sample_rate: int) -> None:
     """Checks across sections. Needs no torch, so it runs at enqueue time."""
-    from affect.features import logmel
-    from affect.models import cnn, cnn_lif, cnn_transformer, snn
+    from affect.features import frames, logmel
+    from affect.models import cnn, cnn_lif, cnn_rnn, cnn_transformer, snn
+    from affect.models import frames as frame_models
 
     if job.features_name == "logmel":
         logmel.check(job.features, sample_rate)
-        n_mels = job.features.n_mels
+        if job.model_name not in LOGMEL_MODELS:
+            raise ValueError(f"model {job.model_name!r} reads a pretrained encoder's frames, not log-mel features")
+    elif job.features_name == "pretrained_frames":
+        # added 2026-10-26: the frames are the encoder's, so nothing that changes the audio, and no corpus without
+        # extracted frames
+        frames.check(job.features)
+        if job.model_name not in FRAME_MODELS:
+            raise ValueError(f"model {job.model_name!r} reads a log-mel image, not a pretrained encoder's frames")
+        if tuple(job.augment.speed_factors) != (1.0,):
+            raise ValueError("features pretrained_frames: speed perturbation changes the audio, not the frames")
+        if job.train.external_test != "none":
+            raise ValueError("features pretrained_frames: the external test needs the corpus's frames, not extracted")
     else:
         raise ValueError(f"no check for features {job.features_name!r}")
+    n_mels = input_width(job)
     model_checks = {"cnn": cnn.check, "cnn_transformer": cnn_transformer.check, "cnn_lif": cnn_lif.check,
-                    "snn": snn.check}
+                    "snn": snn.check, "cnn_rnn": cnn_rnn.check, **{m: frame_models.check for m in FRAME_MODELS}}
     if job.model_name not in model_checks:
         raise ValueError(f"no check for model {job.model_name!r}")
     model_checks[job.model_name](job.model, n_mels)
     check_augment(job.augment, n_mels)
     check_train(job.train)
+    if job.train.contrastive != "none" and job.augment.mixup_alpha > 0:
+        # the contrastive loss pairs utterances by label (added 2026-10-15); mixup blends two utterances
+        # and their labels, so an utterance would no longer have one label to be paired by
+        raise ValueError("train: a contrastive loss needs mixup_alpha 0 (mixup blends the labels it pairs by)")
+    if job.train.external_test != "none":
+        # added 2026-10-20: EmoFilm holds IEMOCAP's three classes only, and its speakers are not IEMOCAP's, so a
+        # normalization by IEMOCAP speaker statistics has nothing to apply to its clips. Since 2026-10-24 a label set
+        # with more classes than those three (four_merged) is allowed too: its model is scored on the three.
+        from affect.data.emofilm import CLASS_ORDER as EXTERNAL_CLASSES
+        from affect.data.iemocap import CLASS_ORDER
+        from affect.train.data import EXTERNAL_LABEL_SETS
+
+        needed = EXTERNAL_CLASSES[EXTERNAL_LABEL_SETS[job.train.external_test]]
+        label_set = getattr(job.data, "label_set", None)
+        if job.data_name != "iemocap" or not set(needed) <= set(CLASS_ORDER.get(label_set, ())):
+            raise ValueError(f"train: external_test {job.train.external_test} needs an IEMOCAP label set that holds "
+                             f"its classes {list(needed)} (three_no_neutral or four_merged)")
+        if job.features.normalization == "speaker":
+            raise ValueError("train: external_test emofilm needs a normalization other than speaker")
+    if job.train.aux_va != "none" and job.data_name != "iemocap":
+        # added 2026-10-24: the valence and activation ratings are IEMOCAP's (extra "v" and "a")
+        raise ValueError("train: aux_va needs IEMOCAP, whose utterances carry valence and activation ratings")

@@ -1,0 +1,77 @@
+{
+ "sweep_id": "classical_pretrained_wav2vec2_base_pooled4_1",
+ "description": "Pretrained models, Dr. Luitel's request of 2026-10-12: wav2vec 2.0 Base (facebook/wav2vec2-base), frozen, pretrained on unlabeled speech (no transcripts), each of its 13 layers' mean frame vector per utterance with an SVM (rbf, class-balanced, per-speaker z-scores, C and gamma chosen on validation), under four merged classes, pooled random folds (the data section of threeblock_pooled). Seed 1. How it is read is fixed in RULE_night19b.txt (analyses/night19b_prep_20261019) before any run. Runs on CPUs in the classical environment.",
+ "folds": [
+  "test_G1",
+  "test_G2",
+  "test_G3",
+  "test_G4",
+  "test_G5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "utterance_5fold"
+  },
+  "functionals": {
+   "feature_set": "wav2vec2_base_l0",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "layer0",
+   "kind": "base",
+   "priority": 99,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "layers",
+   "kind": "grid",
+   "priority": 99,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "wav2vec2_base_l1",
+     "wav2vec2_base_l2",
+     "wav2vec2_base_l3",
+     "wav2vec2_base_l4",
+     "wav2vec2_base_l5",
+     "wav2vec2_base_l6",
+     "wav2vec2_base_l7",
+     "wav2vec2_base_l8",
+     "wav2vec2_base_l9",
+     "wav2vec2_base_l10",
+     "wav2vec2_base_l11",
+     "wav2vec2_base_l12"
+    ]
+   }
+  }
+ ]
+}

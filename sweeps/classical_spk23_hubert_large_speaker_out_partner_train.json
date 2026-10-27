@@ -1,0 +1,94 @@
+{
+ "sweep_id": "classical_spk23_hubert_large_speaker_out_partner_train",
+ "description": "Speaker out for the SVM probe of hubert_large (E2 of the week plan): classical_pretrained_hubert_large_so4_1 (every layer, the same SVM, per-speaker z-scores, seed 1) with data.split changed to leave_one_speaker_out_partner_in_train and the 10 speaker folds: the test speaker's partner trains and a speaker of another session validates. The layer is chosen again on this protocol's validation. How the results are read is fixed in RULE_night23.txt (analyses/night23_prep_20261022) before any run. Runs on CPUs.",
+ "folds": [
+  "test_Ses01_F",
+  "test_Ses01_M",
+  "test_Ses02_F",
+  "test_Ses02_M",
+  "test_Ses03_F",
+  "test_Ses03_M",
+  "test_Ses04_F",
+  "test_Ses04_M",
+  "test_Ses05_F",
+  "test_Ses05_M"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_speaker_out_partner_in_train"
+  },
+  "functionals": {
+   "feature_set": "hubert_large_l0",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "layer0",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "layers",
+   "kind": "grid",
+   "priority": 100,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "hubert_large_l1",
+     "hubert_large_l2",
+     "hubert_large_l3",
+     "hubert_large_l4",
+     "hubert_large_l5",
+     "hubert_large_l6",
+     "hubert_large_l7",
+     "hubert_large_l8",
+     "hubert_large_l9",
+     "hubert_large_l10",
+     "hubert_large_l11",
+     "hubert_large_l12",
+     "hubert_large_l13",
+     "hubert_large_l14",
+     "hubert_large_l15",
+     "hubert_large_l16",
+     "hubert_large_l17",
+     "hubert_large_l18",
+     "hubert_large_l19",
+     "hubert_large_l20",
+     "hubert_large_l21",
+     "hubert_large_l22",
+     "hubert_large_l23",
+     "hubert_large_l24"
+    ]
+   }
+  }
+ ]
+}

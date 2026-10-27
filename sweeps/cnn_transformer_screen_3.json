@@ -1,0 +1,290 @@
+{
+ "sweep_id": "cnn_transformer_screen_3",
+ "description": "A wider search of the CNN + Transformer (G4 of the week plan of 2026-10-21; Dr. Luitel: a different Transformer part may be better). The base is the finalist cnn_transformer_final_1's recorded settings (47ce7034379e), seeds 1 to 3, as this search's reference. Stage random: 200 configurations over a wider space than screens 1 and 2 (up to 6 Transformer layers, d_model up to 256, 1 to 8 heads, feed-forward width up to 2048, relu or gelu, pre- or post-norm, the position code, five poolings, three- to five-block front ends with one or two convolutions per block, 40 to 64 mel bands, SpecAugment on or off, hard or soft labels, label smoothing, learning rates 0.0001 to 0.0005, both schedules, 60 or 100 epochs, three class balancings). 3 seeds per configuration, session-out folds, four classes. Priority 60, below every other job, so it fills spare hours and continues on later nights. Validation only. How the results are read is fixed in RULE_night23.txt (analyses/night23_prep_20261022) before any run.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 48,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 12,
+   "time_masks": 2,
+   "time_mask_width": 30,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn_transformer",
+   "channels": [
+    48,
+    96,
+    192,
+    384
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "freq_reduce": "flatten",
+   "d_model": 32,
+   "n_heads": 4,
+   "n_layers": 1,
+   "ff_dim": 512,
+   "transformer_dropout": 0.1,
+   "transformer_activation": "gelu",
+   "norm_first": true,
+   "positional": "none",
+   "pooling": "stats",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0001,
+   "weight_decay": 0.001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null
+  }
+ },
+ "stages": [
+  {
+   "name": "finalist",
+   "kind": "base",
+   "priority": 60,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "random",
+   "kind": "random",
+   "priority": 60,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "n_configs": 200,
+   "sampling_seed": 20261022,
+   "space": {
+    "model.channels": [
+     [
+      32,
+      64,
+      128
+     ],
+     [
+      32,
+      64,
+      128,
+      256
+     ],
+     [
+      48,
+      96,
+      192,
+      384
+     ],
+     [
+      32,
+      64,
+      128,
+      256,
+      512
+     ],
+     [
+      64,
+      128,
+      256,
+      512
+     ]
+    ],
+    "model.convs_per_block": [
+     1,
+     2
+    ],
+    "model.kernel_size": [
+     3,
+     5
+    ],
+    "model.freq_reduce": [
+     "flatten",
+     "mean"
+    ],
+    "model.d_model": [
+     32,
+     64,
+     128,
+     256
+    ],
+    "model.n_heads": [
+     1,
+     2,
+     4,
+     8
+    ],
+    "model.n_layers": [
+     1,
+     2,
+     3,
+     4,
+     6
+    ],
+    "model.ff_dim": [
+     128,
+     256,
+     512,
+     1024,
+     2048
+    ],
+    "model.transformer_dropout": [
+     0.0,
+     0.1,
+     0.2,
+     0.3
+    ],
+    "model.transformer_activation": [
+     "relu",
+     "gelu"
+    ],
+    "model.norm_first": [
+     true,
+     false
+    ],
+    "model.positional": [
+     "sinusoidal",
+     "none"
+    ],
+    "model.pooling": [
+     "mean",
+     "max",
+     "meanmax",
+     "stats",
+     "attention"
+    ],
+    "model.classifier_hidden": [
+     null,
+     128
+    ],
+    "model.dropout": [
+     0.2,
+     0.3,
+     0.5
+    ],
+    "features.n_mels": [
+     40,
+     48,
+     64
+    ],
+    "specaugment": [
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 8,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 20
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 12,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 30
+     },
+     {
+      "augment.freq_masks": 0,
+      "augment.freq_mask_width": 0,
+      "augment.time_masks": 0,
+      "augment.time_mask_width": 0
+     }
+    ],
+    "train.labels": [
+     "hard",
+     "soft"
+    ],
+    "train.label_smoothing": [
+     0.0,
+     0.1
+    ],
+    "train.lr": [
+     0.0001,
+     0.0002,
+     0.0003,
+     0.0005
+    ],
+    "train.weight_decay": [
+     0.0001,
+     0.001,
+     0.01
+    ],
+    "train.batch_size": [
+     16,
+     32
+    ],
+    "train.warmup_epochs": [
+     2,
+     5
+    ],
+    "train.schedule": [
+     "cosine",
+     "constant"
+    ],
+    "train.epochs": [
+     60,
+     100
+    ],
+    "train.crop_s": [
+     5.0,
+     7.5,
+     10.0
+    ],
+    "train.class_balance": [
+     "weighted_loss",
+     "balanced_sampler",
+     "none"
+    ]
+   }
+  }
+ ]
+}

@@ -10,11 +10,26 @@ import dataclasses
 from typing import Literal
 
 
+# Pretrained speech encoders (added 2026-10-19, affect.classical.pretrained): name -> (hidden layers with the
+# encoder's projected output as layer 0, width). Each layer k is the feature set "<name>_l<k>": the mean over time of
+# that layer's frame vectors, one vector per utterance. The three Base models (night 19b) and their Large versions
+# (night 19c, the same evening).
+PRETRAINED_MODELS = {"wavlm_base_plus": (13, 768), "hubert_base": (13, 768), "wav2vec2_base": (13, 768),
+                     "wavlm_large": (25, 1024), "hubert_large": (25, 1024), "wav2vec2_large": (25, 1024)}
+PRETRAINED_FEATURE_SETS = tuple(f"{m}_l{k}" for m, (n, _) in PRETRAINED_MODELS.items() for k in range(n))
+# Added 2026-10-20 (the survey's cheapest next steps): "<model>_l<k>_msd", each layer's mean and SD over its frames,
+# side by side (twice the width), and "<model>_lavg", the mean of every layer's mean vector (affect.classical.pretrained).
+PRETRAINED_MSD_SETS = tuple(f"{m}_l{k}_msd" for m, (n, _) in PRETRAINED_MODELS.items() for k in range(n))
+PRETRAINED_AVERAGE_SETS = tuple(f"{m}_lavg" for m in PRETRAINED_MODELS)
+
+
 @dataclasses.dataclass(frozen=True)
 class FunctionalSettings:
-    feature_set: Literal["eGeMAPSv02", "ComParE_2016", "emobase"]
+    feature_set: Literal[("eGeMAPSv02", "ComParE_2016", "emobase") + PRETRAINED_FEATURE_SETS + PRETRAINED_MSD_SETS
+                         + PRETRAINED_AVERAGE_SETS]
     # openSMILE functionals, one vector per utterance: eGeMAPS v02 (88 features; Eyben et al. 2016),
-    # the ComParE 2016 set (6,373) or emobase (988)
+    # the ComParE 2016 set (6,373) or emobase (988); or a pretrained encoder's layer (PRETRAINED_FEATURE_SETS), its
+    # mean and SD (PRETRAINED_MSD_SETS) or the mean over its layers (PRETRAINED_AVERAGE_SETS)
     normalization: Literal["global", "speaker"]
     # global: each feature z-scored with the mean and SD of the training utterances. speaker: each
     # feature z-scored with the mean and SD of all of that speaker's utterances (audio only, labels

@@ -7,6 +7,12 @@
 # Code: src/, notebooks/, scripts/, tests/ and the top-level files in ~/affect are replaced
 # wholesale, so a file removed on the PC cannot survive here. data/, artifacts/, queue/ and
 # logs/ are never touched. Each install is recorded in <root>/CODE_VERSIONS.log.
+# Since 2026-10-26 the old code is moved aside (renamed into ~/affect_incoming/replaced/<utc>_<root>/), not
+# deleted, and the new code then moved in: /home on the node is NFS, where a file a running process holds open
+# cannot be deleted (it becomes an .nfs placeholder that keeps its folder from being removed), which stopped the
+# install of 2026-10-24 half way; a rename is not stopped by it. Copies moved aside by earlier installs are deleted
+# at the start of the next install where nothing holds them open, and left (with a note) where something does. If
+# an old item cannot be moved aside, the items already moved go back and nothing changes.
 # Data: unpacked into ~/affect/data/<dataset>/assembled/, and refused if that folder exists.
 # The optional second argument installs code into another folder (added 2026-09-29), for testing
 # new code in ~/affect_next while workers run from ~/affect (its data/ and artifacts/ are links to
@@ -25,15 +31,37 @@ cd "$IN"
 sha256sum -c "$NAME.sha256"
 STAGE="$IN/unpacking_$NAME"
 mkdir "$STAGE"
+trap 'rm -rf "$STAGE"' EXIT      # the staging folder goes however the install ends (added 2026-10-26)
 
 case "$NAME" in
 affect_code_*.tar.gz)
     tar -xzf "$NAME" -C "$STAGE"
     test -f "$STAGE/src/affect/__init__.py" || { echo "archive has no src/affect"; exit 1; }
     mkdir -p "$ROOT"
-    for item in src notebooks scripts sweeps tests README.md HANDOFF.md VERIFICATION_LOG.md findings.csv \
-                requirements.in .gitignore .gitattributes; do
-        rm -rf "${ROOT:?}/$item"
+    ITEMS="src notebooks scripts sweeps tests README.md HANDOFF.md VERIFICATION_LOG.md findings.csv requirements.in
+           .gitignore .gitattributes"
+    OLD="$IN/replaced"
+    mkdir -p "$OLD"
+    for previous in "$OLD"/*; do
+        if [ -e "$previous" ]; then
+            rm -rf "$previous" 2>/dev/null || echo "note: $previous is still held open somewhere; left for a later install"
+        fi
+    done
+    ASIDE=$(mktemp -d "$OLD/$(date -u +%Y%m%dT%H%M%SZ)_$(basename "$ROOT")_XXXX")
+    moved=""
+    for item in $ITEMS; do
+        if [ -e "$ROOT/$item" ] || [ -L "$ROOT/$item" ]; then
+            if mv "$ROOT/$item" "$ASIDE/$item"; then
+                moved="$moved $item"
+            else
+                for back in $moved; do mv "$ASIDE/$back" "$ROOT/$back"; done
+                rm -rf "$STAGE"
+                echo "REFUSING: $ROOT/$item could not be moved aside; the code in $ROOT is unchanged"
+                exit 1
+            fi
+        fi
+    done
+    for item in $ITEMS; do
         if [ -e "$STAGE/$item" ]; then mv "$STAGE/$item" "$ROOT/$item"; fi
     done
     find "$ROOT/scripts" -name "*.sh" -exec sed -i 's/\r$//' {} +

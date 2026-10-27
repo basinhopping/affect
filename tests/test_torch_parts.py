@@ -443,9 +443,10 @@ class TestModelAndTraining(unittest.TestCase):
         torch.manual_seed(3)
         model = build_cnn(job.model, job.features.n_mels, 4).train()
         torch.manual_seed(11)
-        loss, emotion, gender = Step(job, model, None, feats, norm, weights, device).loss(
+        loss, emotion, gender, contrastive = Step(job, model, None, feats, norm, weights, device).loss(
             waves, lengths, rows, targets, None, torch.Generator().manual_seed(5), np.random.default_rng(9))
         self.assertIsNone(gender)
+        self.assertIsNone(contrastive)
         self.assertIs(loss, emotion)
         torch.manual_seed(11)
         x = feats(torch.from_numpy(waves))
@@ -482,9 +483,11 @@ class TestModelAndTraining(unittest.TestCase):
             aux = make_aux_head(job.train, model, device)
             self.assertEqual(aux.linear.in_features, model.embedding_dim)
             waves = (np.random.default_rng(1).standard_normal((4, 16000)) * 0.1).astype(np.float32)
-            loss, emotion, gender = Step(job, model, aux, feats, Normalizer("utterance"), None, device).loss(
+            step = Step(job, model, aux, feats, Normalizer("utterance"), None, device)
+            loss, emotion, gender, contrastive = step.loss(
                 waves, np.array([16000, 9000, 16000, 12000]), np.arange(4), np.eye(4, dtype=np.float32),
                 np.eye(2, dtype=np.float32)[[0, 1, 0, 1]], torch.Generator().manual_seed(0), np.random.default_rng(2))
+            self.assertIsNone(contrastive)
             self.assertAlmostEqual(loss.item(), emotion.item() + 0.5 * gender.item(), places=5)
             loss.backward()
             self.assertTrue(all(p.grad is not None for p in trainable_parameters(model, aux) if p.requires_grad))

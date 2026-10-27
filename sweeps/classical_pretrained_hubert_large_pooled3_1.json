@@ -1,0 +1,89 @@
+{
+ "sweep_id": "classical_pretrained_hubert_large_pooled3_1",
+ "description": "Pretrained models, Dr. Luitel's request of 2026-10-12: HuBERT Large (facebook/hubert-large-ll60k), frozen, pretrained on unlabeled speech (no transcripts), each of its 25 layers' mean frame vector per utterance with an SVM (rbf, class-balanced, per-speaker z-scores, C and gamma chosen on validation), under three classes, pooled random folds (the data section of threeblock_classes_no_neu3_pooled). Seed 1. How it is read is fixed in RULE_night19c.txt (analyses/night19c_prep_20261019) before any run. Runs on CPUs in the classical environment.",
+ "folds": [
+  "test_G1",
+  "test_G2",
+  "test_G3",
+  "test_G4",
+  "test_G5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "three_no_neutral",
+   "subset": "all",
+   "split": "utterance_5fold"
+  },
+  "functionals": {
+   "feature_set": "hubert_large_l0",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "layer0",
+   "kind": "base",
+   "priority": 97,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "layers",
+   "kind": "grid",
+   "priority": 97,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "hubert_large_l1",
+     "hubert_large_l2",
+     "hubert_large_l3",
+     "hubert_large_l4",
+     "hubert_large_l5",
+     "hubert_large_l6",
+     "hubert_large_l7",
+     "hubert_large_l8",
+     "hubert_large_l9",
+     "hubert_large_l10",
+     "hubert_large_l11",
+     "hubert_large_l12",
+     "hubert_large_l13",
+     "hubert_large_l14",
+     "hubert_large_l15",
+     "hubert_large_l16",
+     "hubert_large_l17",
+     "hubert_large_l18",
+     "hubert_large_l19",
+     "hubert_large_l20",
+     "hubert_large_l21",
+     "hubert_large_l22",
+     "hubert_large_l23",
+     "hubert_large_l24"
+    ]
+   }
+  }
+ ]
+}

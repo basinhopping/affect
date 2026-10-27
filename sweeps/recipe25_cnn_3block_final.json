@@ -1,0 +1,155 @@
+{
+ "sweep_id": "recipe25_cnn_3block_final",
+ "description": "A screen of training recipes on threeblock_final (e0c211fcced3), night 25 (week plan G: other combinations; Dr. Luitel, 2026-10-21: there may be another combination that is better): its recorded settings as the base and one change each: speed perturbation, mixup, the other label kind, a balanced sampler, gender as a second task or removed adversarially, segment-averaged evaluation, per-speaker normalization, label smoothing switched, stronger or no SpecAugment. Seeds 1 to 3, session out, four classes. Validation only. How the results are read is fixed in RULE_night25.txt (analyses/night25_prep_20261024) before any run. Priority 80.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 40,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 12,
+   "time_masks": 2,
+   "time_mask_width": 30,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 5,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "stats",
+   "classifier_hidden": 128,
+   "dropout": 0.2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 100,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch"
+  }
+ },
+ "stages": [
+  {
+   "name": "finalist",
+   "kind": "base",
+   "priority": 80,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "recipes",
+   "kind": "variants",
+   "priority": 80,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "variants": {
+    "speed perturbation 0.9, 1.0 and 1.1": {
+     "augment.speed_factors": [
+      0.9,
+      1.0,
+      1.1
+     ]
+    },
+    "mixup, alpha 0.2": {
+     "augment.mixup_alpha": 0.2
+    },
+    "soft labels": {
+     "train.labels": "soft"
+    },
+    "a balanced sampler": {
+     "train.class_balance": "balanced_sampler"
+    },
+    "gender as a second task, weight 0.1": {
+     "train.aux_gender": "multitask",
+     "train.aux_gender_weight": 0.1
+    },
+    "gender as a second task, weight 0.3": {
+     "train.aux_gender": "multitask",
+     "train.aux_gender_weight": 0.3
+    },
+    "gender removed adversarially, weight 0.1": {
+     "train.aux_gender": "adversarial",
+     "train.aux_gender_weight": 0.1
+    },
+    "evaluation on 2 s segments, hop 1 s": {
+     "train.eval_segment_s": 2.0,
+     "train.eval_segment_hop_s": 1.0
+    },
+    "per-speaker normalization": {
+     "features.normalization": "speaker"
+    },
+    "label smoothing 0.1": {
+     "train.label_smoothing": 0.1
+    },
+    "stronger SpecAugment (4 time masks of 40 frames)": {
+     "augment.freq_masks": 2,
+     "augment.freq_mask_width": 12,
+     "augment.time_masks": 4,
+     "augment.time_mask_width": 40
+    },
+    "no SpecAugment": {
+     "augment.freq_masks": 0,
+     "augment.freq_mask_width": 0,
+     "augment.time_masks": 0,
+     "augment.time_mask_width": 0
+    }
+   }
+  }
+ ]
+}

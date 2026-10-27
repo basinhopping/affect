@@ -66,6 +66,11 @@ class TestExpand(unittest.TestCase):
         hashes = {j["config_hash"][:12] for j in jobs}
         self.assertTrue({"9e0cfdfd7f40", "7c12a8af46e1"} <= hashes, "cnn_final_1 and cnn_final_1b")
         self.assertIn("cf0495a296e9_test_S1_seed1", {j["run_id"] for j in jobs})
+        # the tuned 3-block CNN (threeblock_final, run on nights 9 and 14) and cnn_final_3 (night 7), written with
+        # every field of 2026-10-15, the contrastive ones at none, as the bases of the contrastive screens
+        for name, recorded in (("cnn_3block_supcon_1", "e0c211fcced3"), ("cnn_final3_supcon_1", "7977141b6ba3")):
+            _, summary = expand(json.loads((REPO / "sweeps" / f"{name}.json").read_text()))
+            self.assertTrue(summary["base_config_hash"].startswith(recorded), name)
 
     def test_old_and_new_forms_of_a_job_hash_alike(self):
         from affect.runs.spec import config_hash, plain, validate_job
@@ -73,32 +78,64 @@ class TestExpand(unittest.TestCase):
         jobs, _ = expand(json.loads((REPO / "sweeps" / "cnn_confirm_1.json").read_text()))
         new = jobs[0]["settings"]
         self.assertIn("speed_factors", new["augment"])
-        old = json.loads(json.dumps(new))
         self.assertEqual(new["train"]["eval_train"], "none")
-        # the form of 2026-09-26 to 10-02: every field but eval_train (added 2026-10-03)
-        middle = json.loads(json.dumps(new))
+        self.assertEqual(new["train"]["contrastive"], "none")
+        self.assertEqual(new["train"]["external_test"], "none")
+        self.assertEqual((new["train"]["aux_va"], new["train"]["aux_va_weight"], new["train"]["aux_va_loss"]),
+                         ("none", 0.0, "none"))
+        # the form of 2026-10-20 to 10-23: every field but the valence and activation ones (added 2026-10-24)
+        newest_before = json.loads(json.dumps(new))
+        for field in ("aux_va", "aux_va_weight", "aux_va_loss"):
+            del newest_before["train"][field]
+        # the form of 2026-10-15 to 10-19: also without external_test (added 2026-10-20)
+        recent = json.loads(json.dumps(newest_before))
+        del recent["train"]["external_test"]
+        # the form of 2026-10-03 to 10-14: also without the contrastive ones (added 2026-10-15)
+        late = json.loads(json.dumps(recent))
+        for field in ("contrastive", "contrastive_weight", "contrastive_temperature", "contrastive_dim"):
+            del late["train"][field]
+        # the form of 2026-09-26 to 10-02: also without eval_train (added 2026-10-03)
+        middle = json.loads(json.dumps(late))
         del middle["train"]["eval_train"]
+        # the form before 2026-09-26
+        old = json.loads(json.dumps(middle))
         for section, fields in (("augment", ("speed_factors", "mixup_alpha")),
-                                ("train", ("aux_gender", "aux_gender_weight", "eval_segment_s", "eval_segment_hop_s",
-                                           "eval_train")),
+                                ("train", ("aux_gender", "aux_gender_weight", "eval_segment_s", "eval_segment_hop_s")),
                                 ("model", ("norm", "norm_groups", "norm_subbands", "activation"))):
             for field in fields:
                 del old[section][field]
-        self.assertEqual(config_hash(validate_job(old)), jobs[0]["config_hash"])
-        self.assertEqual(config_hash(validate_job(middle)), jobs[0]["config_hash"])
-        self.assertEqual(config_hash(validate_job(new)), jobs[0]["config_hash"])
-        self.assertEqual(plain(validate_job(old)), new)
-        self.assertEqual(plain(validate_job(middle)), new)
+        for name, form in (("old", old), ("middle", middle), ("late", late), ("recent", recent),
+                           ("newest_before", newest_before), ("new", new)):
+            self.assertEqual(config_hash(validate_job(form)), jobs[0]["config_hash"], name)
+            self.assertEqual(plain(validate_job(form)), new, name)
         changed = json.loads(json.dumps(new))
         changed["model"]["norm"] = "none"
         self.assertNotEqual(config_hash(validate_job(changed)), jobs[0]["config_hash"])
         measured = json.loads(json.dumps(new))
         measured["train"]["eval_train"] = "every_epoch"
         self.assertNotEqual(config_hash(validate_job(measured)), jobs[0]["config_hash"])
+        contrasted = json.loads(json.dumps(new))
+        contrasted["train"].update({"contrastive": "supcon", "contrastive_weight": 1.0, "contrastive_temperature": 0.1,
+                                    "contrastive_dim": 128})
+        self.assertNotEqual(config_hash(validate_job(contrasted)), jobs[0]["config_hash"])
+        external = json.loads(json.dumps(new))
+        external["train"]["external_test"] = "emofilm"
+        self.assertNotEqual(config_hash(validate_job(external)), jobs[0]["config_hash"])
+        rated = json.loads(json.dumps(new))
+        rated["train"].update({"aux_va": "multitask", "aux_va_weight": 0.3, "aux_va_loss": "ccc"})
+        self.assertNotEqual(config_hash(validate_job(rated)), jobs[0]["config_hash"])
+        third = json.loads(json.dumps(new))
+        del third["train"]["aux_va_loss"]            # neither the current form nor an older one
+        with self.assertRaises(ValueError):
+            validate_job(third)
         half = json.loads(json.dumps(new))
         del half["train"]["eval_segment_s"]          # neither the current form nor an older one
         with self.assertRaises(ValueError):
             validate_job(half)
+        part = json.loads(json.dumps(new))
+        del part["train"]["contrastive_dim"]         # neither, either
+        with self.assertRaises(ValueError):
+            validate_job(part)
 
     def test_counts_and_order(self):
         jobs, summary = expand(small_sweep())

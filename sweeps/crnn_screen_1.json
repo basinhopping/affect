@@ -1,0 +1,251 @@
+{
+ "sweep_id": "crnn_screen_1",
+ "description": "Night 25 (2026-10-24; Harrison, 2026-10-23: other combinations trained from scratch): the CNN + recurrent family (model cnn_rnn, added 2026-10-24). The base takes the CNN + Transformer finalist's front end (47ce7034379e: four blocks of 48 to 384 channels, flattened bands), features, SpecAugment and training settings, with a two-layer bidirectional GRU of 128 units, attention pooling and a learning rate of 0.0005; then 20 random configurations over the front end, GRU or LSTM, 1 to 3 layers of 64 to 256 units, one direction or two, the dropout between layers, every pooling and the last state, mel bands, SpecAugment, learning rate, weight decay, batch, crop, labels, smoothing, class balance and schedule (sampling seed 20261024). Seeds 1 to 3, session out, four classes. Validation only. How the results are read is fixed in RULE_night25b.txt (analyses/night25b_prep_20261024) before any run. Priority 98.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 48,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 12,
+   "time_masks": 2,
+   "time_mask_width": 30,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn_rnn",
+   "channels": [
+    48,
+    96,
+    192,
+    384
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "freq_reduce": "flatten",
+   "rnn": "gru",
+   "rnn_hidden": 128,
+   "rnn_layers": 2,
+   "bidirectional": true,
+   "rnn_dropout": 0.2,
+   "pooling": "attention",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0005,
+   "weight_decay": 0.001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "none",
+   "contrastive": "none",
+   "contrastive_weight": 0.0,
+   "contrastive_temperature": null,
+   "contrastive_dim": null,
+   "external_test": "none",
+   "aux_va": "none",
+   "aux_va_weight": 0.0,
+   "aux_va_loss": "none"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 98,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "random",
+   "kind": "random",
+   "priority": 98,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "n_configs": 20,
+   "sampling_seed": 20261024,
+   "space": {
+    "model.channels": [
+     [
+      32,
+      64,
+      128,
+      256
+     ],
+     [
+      48,
+      96,
+      192,
+      384
+     ],
+     [
+      64,
+      128,
+      256
+     ],
+     [
+      32,
+      64,
+      128
+     ]
+    ],
+    "model.kernel_size": [
+     3,
+     5
+    ],
+    "model.freq_reduce": [
+     "mean",
+     "flatten"
+    ],
+    "model.rnn": [
+     "gru",
+     "lstm"
+    ],
+    "model.rnn_hidden": [
+     64,
+     128,
+     256
+    ],
+    "model.rnn_layers": [
+     1,
+     2,
+     3
+    ],
+    "model.bidirectional": [
+     true,
+     false
+    ],
+    "model.rnn_dropout": [
+     0.0,
+     0.2,
+     0.4
+    ],
+    "model.pooling": [
+     "mean",
+     "max",
+     "meanmax",
+     "stats",
+     "attention",
+     "last"
+    ],
+    "model.dropout": [
+     0.2,
+     0.3,
+     0.5
+    ],
+    "features.n_mels": [
+     40,
+     48,
+     64
+    ],
+    "specaugment": [
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 8,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 20
+     },
+     {
+      "augment.freq_masks": 2,
+      "augment.freq_mask_width": 12,
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 30
+     },
+     {
+      "augment.freq_masks": 0,
+      "augment.freq_mask_width": 0,
+      "augment.time_masks": 0,
+      "augment.time_mask_width": 0
+     }
+    ],
+    "train.lr": [
+     0.0003,
+     0.0005,
+     0.001
+    ],
+    "train.weight_decay": [
+     0.0001,
+     0.001,
+     0.01
+    ],
+    "train.batch_size": [
+     16,
+     32
+    ],
+    "train.crop_s": [
+     5.0,
+     7.5,
+     10.0
+    ],
+    "train.labels": [
+     "hard",
+     "soft"
+    ],
+    "train.label_smoothing": [
+     0.0,
+     0.1
+    ],
+    "train.class_balance": [
+     "weighted_loss",
+     "balanced_sampler",
+     "none"
+    ],
+    "train.schedule": [
+     "cosine",
+     "constant"
+    ]
+   }
+  }
+ ]
+}

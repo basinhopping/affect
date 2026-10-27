@@ -1,0 +1,49 @@
+{
+ "sweep_id": "classical_tpot23_wavlm_large_so4_s1",
+ "description": "TPOT on WavLM Large (G1 of the week plan): the feature set of pretrained19c_wavlm_large_so4 (wavlm_large_l20, per-speaker z-scores) with classical_tpot_1's search (100 generations of 100 pipelines, TPOT's default operators, every pipeline fitted on training and scored by UA on validation, at most 45 minutes per search), 4 parallel jobs per search. TPOT's search is random: this is seed 1 of 1 to 5, one sweep per seed so the five run side by side. How the results are read is fixed in RULE_night23.txt (analyses/night23_prep_20261022) before any run. Runs on CPUs.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "functionals": {
+   "feature_set": "wavlm_large_l20",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "tpot",
+   "generations": 100,
+   "population_size": 100,
+   "offspring_size": 100,
+   "mutation_rate": 0.9,
+   "crossover_rate": 0.1,
+   "operators": "default",
+   "max_time_mins": 45.0,
+   "max_eval_time_mins": 5.0,
+   "n_jobs": 4
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "tpot",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  }
+ ]
+}

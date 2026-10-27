@@ -1,0 +1,55 @@
+{
+ "sweep_id": "classical_svm_compare_pooled4_1",
+ "description": "The openSMILE SVM baseline on another setup: classical_svm_best's configuration (ComParE 2016 functionals, per-speaker z-scores, rbf, class-balanced, C and gamma chosen on validation per fold; from classical_svm_1, four classes session out) with only the data section changed to four merged classes, pooled random folds (that of threeblock_pooled). One configuration, seed 1. How it is read is fixed in RULE_night19c.txt (analyses/night19c_prep_20261019) before any run.",
+ "folds": [
+  "test_G1",
+  "test_G2",
+  "test_G3",
+  "test_G4",
+  "test_G5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "utterance_5fold"
+  },
+  "functionals": {
+   "feature_set": "ComParE_2016",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.01,
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.1,
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "baseline",
+   "kind": "base",
+   "priority": 99,
+   "seeds": [
+    1
+   ]
+  }
+ ]
+}

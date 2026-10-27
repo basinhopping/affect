@@ -1,0 +1,147 @@
+{
+ "sweep_id": "cnn_3block_grid_1",
+ "description": "A full grid on her 3-block CNN, for Dr. Luitel's request of 2026-10-12 to compare grid, random and Bayesian search and to run every combination of a list of values per setting. Seven settings, each at her 3-block CNN's value and the tuned 3-block CNN's (threeblock_final): pooling mean or SD; 60 epochs with patience 10 or 100 with patience 20; channels 32-64-128 or 64-128-256; kernel 3 or 5; dropout 0.3 or 0.2; 64 or 40 mel bands; no hidden layer or 128 units. They are the seven with the largest spread of mean validation UA in cnn_3block_screen_1's random stage. Every other setting is cnn_3block_screen_1's base (her 3-block CNN as specified, training accuracy every epoch). 128 configurations, seeds 1 to 3, session-out folds, four classes: 1,920 jobs. Validation only: the comparison of search methods is fixed in PLAN_night13.txt (analyses/night13_prep_20261012) before any run, and no test file is read.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 120,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "grid",
+   "kind": "grid",
+   "priority": 120,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "factors": {
+    "model.pooling": [
+     "mean",
+     "stats"
+    ],
+    "length": [
+     {
+      "train.epochs": 60,
+      "train.early_stopping_patience": 10
+     },
+     {
+      "train.epochs": 100,
+      "train.early_stopping_patience": 20
+     }
+    ],
+    "model.channels": [
+     [
+      32,
+      64,
+      128
+     ],
+     [
+      64,
+      128,
+      256
+     ]
+    ],
+    "model.kernel_size": [
+     3,
+     5
+    ],
+    "model.dropout": [
+     0.3,
+     0.2
+    ],
+    "features.n_mels": [
+     64,
+     40
+    ],
+    "model.classifier_hidden": [
+     null,
+     128
+    ]
+   }
+  }
+ ]
+}

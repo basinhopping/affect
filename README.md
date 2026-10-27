@@ -20,7 +20,8 @@ affect/
     registry.py        @register_dataset / @register_feature / @register_model
     catalog.py         one import line per component module
     data/              iemocap.py, iemocap_splits.py (the split schemes), splits.py, ingest.py,
-                       assemble.py, transfer.py, walk.py, manifest.py, audio.py, base.py
+                       assemble.py, transfer.py, walk.py, manifest.py, audio.py, base.py; emofilm.py
+                       (2026-10-20): EmoFilm's happiness, anger and sadness clips, a test corpus only
     eval/              metrics.py (UA, WA, F1), stats.py (t intervals, paired bootstrap, P(A>B), Holm)
     runs/              store.py (output folders), provenance.py
     env.py             environment and GPU checks
@@ -32,12 +33,16 @@ affect/
                        and activation are settings), cnn_transformer.py, cnn_lif.py (the CNN front end
                        with LIF layers, the hybrid), snn.py (fully spiking), lif.py (the spiking
                        layers), lif_reference.py (the neuron in numpy, for the tests), heads.py (the
-                       gender head)
+                       gender head, the valence and activation head, and the projection head of the
+                       contrastive loss), cnn_rnn.py (2026-10-24: the CNN front end with a GRU or LSTM)
     train/             settings.py, data.py (audio in memory, crops, speed-perturbed crops,
                        evaluation segments), loop.py (one job; train.loop.Step is one training step)
     runs/spec.py       a job's five settings sections, validated and hashed
     classical/         openSMILE functionals with an SVM or a TPOT search (own environment):
-                       settings.py, functionals.py, methods.py, runner.py, selftest.py
+                       settings.py, functionals.py, methods.py, runner.py, selftest.py; pretrained.py
+                       (2026-10-19): pretrained encoders' layers (WavLM, HuBERT and wav2vec 2.0, Base and Large) as
+                       feature sets <model>_l<k>, the mean of each layer's frame vectors per utterance; coldtest.py
+                       (2026-10-20): a record's SVMs fitted again, checked against its runs, scored on EmoFilm
     sweep/             design.py (expand a sweep file), enqueue.py, queue.py, worker.py,
                        status.py, smoke.py
     analysis/          validation.py: a finished sweep's configurations against its baseline (analyze);
@@ -46,14 +51,26 @@ affect/
   tests/               python -m unittest discover -s tests -t .
   scripts/             node: common.sh setup_env.sh check.sh unpack.sh pack.sh worker.sh affect.sh
                              smoke_enqueue.sh (smoke-test, then enqueue, sweeps in order) and
-                             gpu_schedule.sh (the weekend schedule of 2026-10-03 to 10-05), both 2026-10-03
-                       PC:   push.ps1 pull.ps1 (the node's login is read from node.local.txt beside README.md, not in git)
+                             gpu_schedule.sh (the weekend schedule of 2026-10-03 to 10-05), both 2026-10-03;
+                             smoke_enqueue_files.sh (the same for sweep files given by path, taken out of a pushed
+                             archive while workers run, so ~/affect stays as installed), 2026-10-18;
+                             pretrained.sh (download-pretrained and extract-pretrained with transformers from
+                             ~/venvs/affect_pretrained) and pretrained_night.sh (extract on one GPU, then classical
+                             sweeps in parallel), 2026-10-19; coldtest_night.sh (EmoFilm's features, then the cold
+                             tests), 2026-10-20; pooling_night.sh (mean and SD pooling and the layer average,
+                             then their sweeps), 2026-10-20; night22.sh (the valence and arousal probes and
+                             the EmoFilm fine-tuning on CPUs), 2026-10-21; swap_and_restart.sh (stop the workers,
+                             install a code archive into ~/affect and check its tree digest, start them again, then
+                             smoke-test and enqueue sweeps; run from ~/affect_next), 2026-10-24
+                       PC:   push.ps1 (-Data -Dataset emofilm sends EmoFilm's assembly, 2026-10-20) pull.ps1 (the
+                             node's login is read from node.local.txt beside README.md, not in git)
   sweeps/              sweep files (JSON): base configuration, folds, stages
   notebooks/           cnn_3block.ipynb: settings, check, sweep and results of the 3-block CNN
   data/                not synced as code; see data/README.md
     iemocap/raw/         verified copies of the received folders, never edited
     iemocap/manifests/   one manifest per raw folder (path, bytes, SHA-256)
     iemocap/assembled/   what training reads, with MANIFEST.csv and ASSEMBLY.json
+    emofilm/assembled/   EmoFilm's 726 clips at 16 kHz (2026-10-20), with MANIFEST.csv and ASSEMBLY.json
   artifacts/           results, written on the node and pulled back
 ```
 
@@ -69,7 +86,12 @@ leaves an added field out while it holds its earlier value (`affect.settings.can
 every configuration that ran before keeps its hash and run IDs, whichever form it is written in,
 and the jobs still pending in the queue stay valid. Added so far: speed perturbation and mixup
 (augment), the normalization layer and activation (model cnn), the gender head and evaluation
-segments (train).
+segments (train, 2026-09-26), the training-set evaluation after each epoch (train.eval_train,
+2026-10-03), the supervised contrastive loss (train.contrastive, 2026-10-15), the external test
+(train.external_test, 2026-10-20), and the valence and activation head (train.aux_va, aux_va_weight and
+aux_va_loss, 2026-10-24: IEMOCAP's two ratings, standardized on the training sessions, as a second target with a
+CCC or MSE loss; the run folder then also holds predictions_va_val.csv and predictions_va_test.csv, and the metrics
+the concordance correlations).
 
 ## Commands
 
@@ -98,6 +120,11 @@ bash ~/affect_incoming/unpack.sh affect_data_iemocap_<utc>.tar
 bash ~/affect/scripts/setup_env.sh        # once: builds ~/venvs/affect
 bash ~/affect/scripts/check.sh            # tests, verify-data, env-check on 4 GPUs
 ```
+
+unpack.sh moves the old code aside into `~/affect_incoming/replaced/` instead of deleting it (since 2026-10-26: the
+node's home is NFS, where a file a running process holds open cannot be deleted, and the install of 2026-10-24
+stopped half way on one), and deletes those copies at the next install where nothing holds them. Code is installed
+into `~/affect` only while no session of ours runs from it.
 
 Results back to the PC: `bash ~/affect/scripts/pack.sh <path under artifacts/>` on the node,
 then `pull.ps1 <name it prints>` on the PC. Several folders go in one archive (one pull, one
@@ -248,5 +275,49 @@ It records the sweep and writes run folders like the GPU jobs, so `status`, `ana
 `test-report` read it; running the same file again resumes it. `enqueue` and `smoke` refuse
 classical files.
 
+Pretrained encoders (from 2026-10-19; `src/affect/classical/pretrained.py`). WavLM Base+, HuBERT Base and wav2vec
+2.0 Base, and WavLM Large, HuBERT Large and wav2vec 2.0 Large, pretrained on unlabeled speech and frozen, give each
+utterance one vector per hidden layer (the mean of the layer's frame vectors), and each layer is a feature set of the
+classical pipeline, `<model>_l0` to `<model>_l12` (Base) or `<model>_l24` (Large); `pretrained_night.sh
+--label-set four_merged` extracts the utterances of four_merged (which hold three_no_neutral's) instead of those
+of all seven classes. transformers and huggingface_hub live in their own folder, `~/venvs/affect_pretrained`
+(`pip install --target ... --no-deps` with the versions pip's dry run listed), so `~/venvs/affect` is not changed;
+`scripts/pretrained.sh` runs `download-pretrained` (into `~/cache/huggingface`) and `extract-pretrained` with it,
+and `scripts/pretrained_night.sh` extracts the models on one GPU, then runs the classical sweeps
+(`sweeps/classical_pretrained_<model>_<setup>_1.json`) at once. From 2026-10-20, `extract-pretrained` takes
+`--pooling mean` (the layers' mean vectors, as before) or `--pooling mean_sd` (`<model>_l<k>_msd`: each layer's mean
+and SD over its frames, side by side), and `derive-pretrained --kind layer_average` writes `<model>_lavg`, the mean of
+every layer's mean vector; `scripts/pooling_night.sh` makes both and runs their sweeps
+(`sweeps/classical_pooling_<model>_<setup>_1.json`), after checking that 8 GiB are free on the disk of `artifacts/`.
+
+EmoFilm cold test (from 2026-10-20; `src/affect/data/emofilm.py`, `src/affect/classical/coldtest.py`). EmoFilm
+(Parada-Cabaleiro et al. 2018) is a test corpus here: its happiness, anger and sadness clips (726 of 1,115; fear and
+disgust left out, and it has no neutral) as IEMOCAP's hap+exc, ang and sad, assembled on the PC by
+`artifacts/analyses/night20_prep_20261020/assemble_emofilm.py` (ffmpeg to 16 kHz) and sent with `push.ps1 -Data
+-Dataset emofilm`. `extract-pretrained` and `extract-functionals` take `--dataset emofilm --label-set
+three_no_neutral --subset all`, and `bash ~/affect/scripts/classical.sh cold-test --selections <record> [...]
+--target emofilm --label-set three_no_neutral --subset all` fits each record's SVMs again on IEMOCAP, one per fold,
+checks each against its run (validation UA, and every validation and test prediction), and scores EmoFilm with
+EmoFilm's features z-scored per language and gender, and over the whole corpus, into `artifacts/coldtests/`.
+`scripts/coldtest_night.sh` does the extractions and the cold tests in one tmux session. The trained models score
+EmoFilm when their sweep sets `train.external_test` to `emofilm` (added 2026-10-20; three-class jobs whose
+normalization is not by speaker, and from 2026-10-24 four-class ones too): after the IEMOCAP test set, the chosen
+epoch's model scores EmoFilm's clips into `metrics_emofilm.json` and `predictions_emofilm.csv` of the run folder, and
+changes no IEMOCAP number. A four-class model gives each clip the most probable of EmoFilm's three classes (its neu
+output left out); `metrics_emofilm.json`'s `strict` part scores its own choice over the four, neu an error.
+From 2026-10-21, `classical.sh emofilm-finetune --selections <record> [...] --film-folds 5`
+(`src/affect/classical/finetune.py`) fits a record's SVMs again the same way, then, with EmoFilm's films in film
+folds (each held out in turn), scores the held-out films three ways: the IEMOCAP models as they are (cold), each
+fitted again with the other films' clips added (adapted), and an SVM on the other films alone, into
+`artifacts/finetune/`.
+
+Valence, activation and dominance (from 2026-10-21; `src/affect/classical/va.py`). `classical.sh va-probe --models
+<model> [...] --dataset iemocap --label-set four_merged --subset all --split leave_one_session_out` fits ridge
+regressions of each utterance's evaluators' mean ratings (1 to 5, IEMOCAP's EmoEvaluation files) on every layer of an
+encoder, z-scored per speaker; the penalty and the layer are chosen on validation by the concordance correlation
+coefficient (CCC), and only the chosen layers predict their test utterances, into `artifacts/va/`.
+`scripts/night22.sh` runs both splits of the probes and the fine-tuning of WavLM Large's two three-class records.
+
 Nothing in this project uses `/scratch` on the node. The environment is `~/venvs/affect`, model
-weights go to `~/cache/huggingface`, and the data to `~/affect/data/iemocap/assembled`.
+weights go to `~/cache/huggingface`, and the data to `~/affect/data/iemocap/assembled` (and
+`~/affect/data/emofilm/assembled`).

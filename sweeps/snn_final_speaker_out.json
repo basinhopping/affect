@@ -1,0 +1,114 @@
+{
+ "sweep_id": "snn_final_speaker_out",
+ "description": "Speaker out on the fully spiking network (snn_final, 396d6ef8c242), Dr. Luitel's question of 2026-10-21 (speaker-specific instead of session-specific folds), the fifth finalist after night 23's four: its recorded settings unchanged but for data.split (leave_one_speaker_out): 10 folds, one test speaker each, each test speaker's session partner validates and the other four sessions train. The four classes, seeds 6 to 10, beside the finalist's session-out runs on the same seeds and test utterances (snn_confirm_1). How the results are read is fixed in RULE_night24.txt (analyses/night24_prep_20261023) before any run. Priority 155.",
+ "folds": [
+  "test_Ses01_F",
+  "test_Ses01_M",
+  "test_Ses02_F",
+  "test_Ses02_M",
+  "test_Ses03_F",
+  "test_Ses03_M",
+  "test_Ses04_F",
+  "test_Ses04_M",
+  "test_Ses05_F",
+  "test_Ses05_M"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_speaker_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 20.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 10,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "snn",
+   "encoding": "frames",
+   "static_steps": null,
+   "channels": [
+    16,
+    32,
+    64
+   ],
+   "convs_per_block": 2,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "conv_norm": "batch",
+   "lif_hidden": [
+    128,
+    64
+   ],
+   "recurrent": true,
+   "lif_norm": "batch",
+   "lif_dropout": 0.0,
+   "beta": 0.8,
+   "learn_beta": "layer",
+   "threshold": 1.0,
+   "reset": "subtract",
+   "detach_reset": false,
+   "surrogate": "boxcar",
+   "surrogate_slope": 1.0,
+   "readout_beta": 0.97,
+   "rate_weight": 1.0,
+   "rate_target": 0.2,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.01,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 4.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch"
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 155,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  }
+ ]
+}
