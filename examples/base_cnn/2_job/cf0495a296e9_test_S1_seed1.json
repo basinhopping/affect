@@ -1,0 +1,69 @@
+{
+ "sweep_id": "cnn_confirm_1",
+ "stage": "baseline",
+ "label": "base",
+ "overrides": {},
+ "priority": 100,
+ "config_hash": "cf0495a296e92ced1ea9122472b8a9d09cd6852b821b785e4798c4ee52de52b3",
+ "run_id": "cf0495a296e9_test_S1_seed1",
+ "fold": "test_S1",
+ "seed": 1,
+ "settings": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 0,
+   "time_mask_width": 0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 32,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 5.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null
+  }
+ }
+}
