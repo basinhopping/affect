@@ -33,9 +33,11 @@ seeds of a chosen model, and why it was chosen.
    copy of the same configuration, fold and seed: the validation predictions byte for byte, the validation metrics
    exactly, and the two test files by SHA-256. It ends SAME, DIFFERENT or INCOMPLETE.
 
-Training is deterministic on the same code and machine: every rerun so far repeated its predictions exactly. The film
-runs of the week of 2026-11-09 are such a check at scale, since each film run trains its refit again from the start
-and its IEMOCAP predictions are compared with the refit's run by SHA-256.
+On the same code and machine, training repeats exactly for almost every model. The film runs of the week of
+2026-11-09 checked this at scale: each trains its refit again from the start, and its IEMOCAP predictions are compared
+with the refit's run by SHA-256. 16 of the 18 records repeated all 25 runs exactly. The Transformer heads on Whisper
+large-v3 and w2v-BERT 2.0 did not (test macro accuracy moved by up to 6.49 and 4.11 points); the cause is being
+checked, and until it is found those two cannot be recalled exactly.
 
 ## Saved weights
 
