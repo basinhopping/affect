@@ -13,6 +13,10 @@ EmoFilm); settings without it mean none, what the loop did before, with the same
 aux_va, aux_va_weight and aux_va_loss were added on 2026-10-24 (Dr. Luitel asked on 2026-10-21 whether the models can
 be trained with valence and arousal); settings without them mean no such output, what the loop did before, with the
 same hashes.
+refit and refit_epochs were added on 2026-10-29 (Dr. Luitel, 2026-10-21: "when i am picking the validation, i train
+again after with the validation session"; workstream E1 for the networks), and warm_start, warm_start_folds,
+warm_start_epochs and warm_start_lr the same day (her "warm up the models and see if they adapt" on the films,
+workstream F2); settings without them mean none, what the loop did before, with the same hashes.
 """
 import dataclasses
 from typing import Literal
@@ -89,6 +93,35 @@ class TrainSettings:
     # ccc: 1 minus the mean over the two dimensions of the batch's concordance correlation coefficient (Lin 1989)
     # between the outputs and the standardized ratings; mse: the mean squared error on the standardized ratings;
     # none with aux_va none.
+    refit: Literal["none", "train_and_val"]
+    # train_and_val (added 2026-10-29): the model trains on the fold's training and validation sessions together for
+    # exactly refit_epochs epochs, with the learning-rate schedule of `epochs` epochs (so the first refit_epochs epochs
+    # follow the schedule the original run followed), no early stopping and no choice of epoch; the last epoch's
+    # weights predict the test session. Every training quantity uses the combined rows: the class weights, the global
+    # normalization's statistics, the valence and activation scale. Nothing is left to validate on, so the validation
+    # session's predictions (still written, from the same weights) are of utterances the model trained on, and
+    # metrics_val.json says so ("refit"). The number of epochs comes from runs that validated (for example the median
+    # chosen epoch of the record's runs), fixed before the refit runs. none: train on the training sessions, choose
+    # the epoch on validation (the loop before 2026-10-29).
+    refit_epochs: int | None       # the epochs of a refit, from 1 to epochs; None with refit none
+    warm_start: Literal["none", "emofilm"]
+    # emofilm (added 2026-10-29): after the external test (external_test emofilm, which scores every clip with the
+    # chosen epoch's model, cold), the same model is adapted to the films. EmoFilm's films are split into
+    # warm_start_folds film folds (affect.classical.finetune.film_folds: the films sorted by name, the k-th in fold k
+    # mod the folds, so a held-out fold shares no scene, actor or dubbing with the clips the model learns from); for
+    # each fold in turn the chosen epoch's weights train for warm_start_epochs epochs on the other folds' clips (the
+    # job's crop length, SpecAugment, mixup and batch size, the clips in a new random order each epoch; hard targets on
+    # EmoFilm's three classes, the model's other outputs never a target, with no label smoothing, class weights,
+    # balanced sampling or speed perturbation; AdamW at the constant rate warm_start_lr, the job's weight decay; no
+    # early stopping, nothing chosen),
+    # then score the held-out fold's clips, and the weights go back. Every clip is scored once, by a model that never
+    # saw its film: metrics_emofilm_warm.json and predictions_emofilm_warm.csv, scored like the external test. Nothing
+    # in IEMOCAP's files changes: it runs after them. Since 2026-11-05 (the films of the final records, the refits) it
+    # also follows a refit: the model scored cold and adapted is then the refit's, its last epoch's weights. none: no
+    # warm start (the loop before 2026-10-29).
+    warm_start_folds: int | None   # film folds, at least 3; None with none
+    warm_start_epochs: int | None  # epochs on the other folds' clips, at least 1; None with none
+    warm_start_lr: float | None    # the constant learning rate of the warm start, above 0; None with none
 
     ADDED_FIELDS = (("2026-09-26", {"aux_gender": "none", "aux_gender_weight": 0.0, "eval_segment_s": None,
                                     "eval_segment_hop_s": None}),
@@ -96,7 +129,9 @@ class TrainSettings:
                     ("2026-10-15", {"contrastive": "none", "contrastive_weight": 0.0, "contrastive_temperature": None,
                                     "contrastive_dim": None}),
                     ("2026-10-20", {"external_test": "none"}),
-                    ("2026-10-24", {"aux_va": "none", "aux_va_weight": 0.0, "aux_va_loss": "none"}))
+                    ("2026-10-24", {"aux_va": "none", "aux_va_weight": 0.0, "aux_va_loss": "none"}),
+                    ("2026-10-29", {"refit": "none", "refit_epochs": None, "warm_start": "none",
+                                    "warm_start_folds": None, "warm_start_epochs": None, "warm_start_lr": None}))
 
 
 def check(settings: TrainSettings) -> None:
@@ -146,3 +181,29 @@ def check(settings: TrainSettings) -> None:
             raise ValueError(f"train: aux_va {settings.aux_va!r} needs aux_va_weight above 0")
         if settings.aux_va_loss == "none":
             raise ValueError(f"train: aux_va {settings.aux_va!r} needs aux_va_loss ccc or mse")
+    if settings.refit == "none":
+        if settings.refit_epochs is not None:
+            raise ValueError("train: refit_epochs must be None when refit is none")
+    else:
+        if settings.refit_epochs is None or not 1 <= settings.refit_epochs <= settings.epochs:
+            raise ValueError(f"train: refit {settings.refit!r} needs refit_epochs from 1 to epochs ({settings.epochs})")
+        if settings.eval_train != "none":
+            raise ValueError("train: refit trains on the validation session too, so eval_train must be none")
+    if settings.warm_start == "none":
+        if (settings.warm_start_folds, settings.warm_start_epochs, settings.warm_start_lr) != (None, None, None):
+            raise ValueError("train: with warm_start none, warm_start_folds, warm_start_epochs and warm_start_lr are "
+                             "None")
+    else:
+        if settings.external_test != settings.warm_start:
+            raise ValueError(f"train: warm_start {settings.warm_start!r} needs external_test {settings.warm_start!r} "
+                             f"(the cold scores of the same model come first)")
+        if settings.warm_start_folds is None or settings.warm_start_folds < 3:
+            raise ValueError("train: warm_start needs warm_start_folds of at least 3")
+        if settings.warm_start_epochs is None or settings.warm_start_epochs < 1:
+            raise ValueError("train: warm_start needs warm_start_epochs of at least 1")
+        if settings.warm_start_lr is None or not settings.warm_start_lr > 0:
+            raise ValueError("train: warm_start needs warm_start_lr above 0")
+        if settings.aux_gender != "none" or settings.contrastive != "none" or settings.aux_va != "none":
+            raise ValueError("train: warm_start adapts the model alone: aux_gender, contrastive and aux_va must be none")
+        # a refit with a warm start (allowed since 2026-11-05; refused before): the refit's last epoch's weights are
+        # scored cold and then adapted, as the epoch chosen on validation is without a refit

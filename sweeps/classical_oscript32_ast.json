@@ -1,0 +1,63 @@
+{
+ "sweep_id": "classical_oscript32_ast",
+ "description": "Week 32 (2026-11-02 to 2026-11-09; Dr. Luitel, 2026-11-02: spectrogram models only, only refits reported, speaker-specific against session-specific, scripted against improvised): the SVM probe probe30_ast_audioset_so4 (76d865104e2f), its layer fixed, in the control of the script-held-out folds (the same test utterances, another script kept out of training and validation), refitted on training plus validation; C and gamma are chosen on each fold's validation set as the probe chooses them. Seed 1. How the results are read is fixed in RULE_week32.txt (analyses/week32_prep_20261102) before any run. Runs on CPUs.",
+ "folds": [
+  "test_S1_script01",
+  "test_S1_script02",
+  "test_S1_script03",
+  "test_S2_script01",
+  "test_S2_script02",
+  "test_S2_script03",
+  "test_S3_script01",
+  "test_S3_script02",
+  "test_S3_script03",
+  "test_S4_script01",
+  "test_S4_script02",
+  "test_S4_script03",
+  "test_S5_script01",
+  "test_S5_script02",
+  "test_S5_script03"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out_other_script_held_out"
+  },
+  "functionals": {
+   "feature_set": "ast_audioset_l8",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train_and_val"
+  }
+ },
+ "stages": [
+  {
+   "name": "refit",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  }
+ ]
+}

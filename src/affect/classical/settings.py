@@ -15,7 +15,24 @@ from typing import Literal
 # that layer's frame vectors, one vector per utterance. The three Base models (night 19b) and their Large versions
 # (night 19c, the same evening).
 PRETRAINED_MODELS = {"wavlm_base_plus": (13, 768), "hubert_base": (13, 768), "wav2vec2_base": (13, 768),
-                     "wavlm_large": (25, 1024), "hubert_large": (25, 1024), "wav2vec2_large": (25, 1024)}
+                     "wavlm_large": (25, 1024), "hubert_large": (25, 1024), "wav2vec2_large": (25, 1024),
+                     "whisper_large_v3": (33, 1280), "ast_audioset": (13, 768), "w2v_bert_2": (25, 1024),
+                     "whisper_small": (13, 768), "bud_e_whisper": (13, 768), "whisper_medium": (25, 1024)}
+# Added 2026-10-29 (workstream C, Dr. Luitel 2026-10-21: "pretrained spectrogram classifier or pretrained model on
+# spectrograms"): encoders whose input is a log-mel spectrogram made by their own feature extractor, not the waveform.
+# Whisper large-v3's encoder (32 layers of 1280 and its input embedding; trained on transcribed speech, so a labeled
+# reference) and the Audio Spectrogram Transformer fine-tuned on AudioSet (12 layers of 768 and its patch embedding;
+# trained on sound-event labels, no transcripts); since 2026-11-02 w2v-BERT 2.0 (24 Conformer layers of 1024 and its
+# feature projection; self-supervised on unlabeled speech; it reads an 80-band mel filterbank). Their layers are probed
+# like the waveform encoders' layers, and every one of them also gives frames for the heads (affect.features.frames:
+# Whisper's since 2026-11-01, AST's and w2v-BERT 2.0's since 2026-11-02). Since Dr. Luitel's decision of 2026-11-02 only
+# these models are compared; the waveform encoders' runs stay as a control. Since 2026-11-05 Whisper Small's encoder
+# (openai/whisper-small: 12 layers of 768 and its input embedding, the same 30 s windows and 50 frames a second as
+# large-v3, but 80 mel bands; RULE_week32_addendum7.txt part S), the same model family at a smaller size. Since
+# 2026-11-07 (RULE_week32_addendum9.txt part N) two more of the family: BUD-E-Whisper (laion/BUD-E-Whisper, Whisper
+# Small fine-tuned to caption emotional speech: Whisper Small's shape, 12 layers of 768) and Whisper medium
+# (openai/whisper-medium: 24 layers of 1024 and its input embedding), both read as Whisper Small is.
+SPECTROGRAM_MODELS = ("whisper_large_v3", "ast_audioset", "w2v_bert_2", "whisper_small", "bud_e_whisper", "whisper_medium")
 PRETRAINED_FEATURE_SETS = tuple(f"{m}_l{k}" for m, (n, _) in PRETRAINED_MODELS.items() for k in range(n))
 # Added 2026-10-20 (the survey's cheapest next steps): "<model>_l<k>_msd", each layer's mean and SD over its frames,
 # side by side (twice the width), and "<model>_lavg", the mean of every layer's mean vector (affect.classical.pretrained).

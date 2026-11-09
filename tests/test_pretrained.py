@@ -121,7 +121,9 @@ class TestNames(unittest.TestCase):
         from affect.settings import validate
 
         self.assertEqual(sorted(REPOS), sorted(PRETRAINED_MODELS))
-        self.assertEqual(len(PRETRAINED_FEATURE_SETS), 3 * 13 + 3 * 25)
+        # Whisper and AST: 2026-10-29; w2v-BERT 2.0: 2026-11-02; Whisper Small: 2026-11-05; BUD-E-Whisper and Whisper
+        # medium: 2026-11-07
+        self.assertEqual(len(PRETRAINED_FEATURE_SETS), 3 * 13 + 3 * 25 + 33 + 13 + 25 + 13 + 13 + 25)
         self.assertEqual(len(set(PRETRAINED_FEATURE_SETS)), len(PRETRAINED_FEATURE_SETS))
         self.assertEqual(feature_sets("wavlm_base_plus")[0], "wavlm_base_plus_l0")
         self.assertEqual(feature_sets("hubert_base")[-1], "hubert_base_l12")
@@ -240,7 +242,7 @@ class TestPooling(unittest.TestCase):
         from affect.settings import validate
 
         self.assertEqual(feature_sets("hubert_base", "mean_sd")[3], "hubert_base_l3_msd")
-        self.assertEqual(len(PRETRAINED_MSD_SETS), 3 * 13 + 3 * 25)
+        self.assertEqual(len(PRETRAINED_MSD_SETS), 3 * 13 + 3 * 25 + 33 + 13 + 25 + 13 + 13 + 25)
         self.assertIn("wavlm_large_lavg", PRETRAINED_AVERAGE_SETS)
         for name in ("wavlm_large_l24_msd", "wav2vec2_base_lavg"):
             validate(FunctionalSettings, {"feature_set": name, "normalization": "speaker"}, "functionals")

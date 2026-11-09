@@ -1,0 +1,77 @@
+{
+ "sweep_id": "classical_pretrained_whisper_small_pooled4_1",
+ "description": "Week 32 (2026-11-05; Harrison, 2026-11-04: Whisper Small as a fourth encoder, to see what the encoder's size alone changes beside Whisper large-v3): Whisper Small's encoder (openai/whisper-small), frozen, reading the 80-band log-mel spectrogram its own feature extractor makes; each of its 13 layers' mean vector per utterance (over the encoder frames that cover the utterance's own samples, as for large-v3) with the SVM of night 30's classical_pretrained_whisper_large_v3_pooled4_1, whose settings this sweep keeps except the feature set. Seed 1. The layer with the highest mean validation macro accuracy over the 5 folds is chosen, a tie to the lower layer (RULE_week32_addendum7.txt part S). How the results are read is fixed in RULE_week32_addendum7.txt (analyses/week32_prep_20261102) before any run. Runs on CPUs in the classical environment.",
+ "folds": [
+  "test_G1",
+  "test_G2",
+  "test_G3",
+  "test_G4",
+  "test_G5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "utterance_5fold"
+  },
+  "functionals": {
+   "feature_set": "whisper_small_l0",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "layer0",
+   "kind": "base",
+   "priority": 99,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "layers",
+   "kind": "grid",
+   "priority": 99,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "whisper_small_l1",
+     "whisper_small_l2",
+     "whisper_small_l3",
+     "whisper_small_l4",
+     "whisper_small_l5",
+     "whisper_small_l6",
+     "whisper_small_l7",
+     "whisper_small_l8",
+     "whisper_small_l9",
+     "whisper_small_l10",
+     "whisper_small_l11",
+     "whisper_small_l12"
+    ]
+   }
+  }
+ ]
+}

@@ -22,6 +22,10 @@ job's own normalization; it draws no random number and changes nothing the job m
 Added 2026-10-24, off in every configuration written before then, which runs exactly as it did: a valence and
 activation head (job.train.aux_va), built after every other head, so a job without it makes the same random draws as
 before; and the external test of a model with more classes than the corpus (four_merged on EmoFilm's three).
+
+Added 2026-11-05 (the films of the final records): the external test and the warm start of a frames job read the
+corpus's frames of the job's encoder and layer (affect.train.data.external_source), and a refit may have them too (its
+last weights are scored and adapted). A log-mel job reads the corpus's samples exactly as before.
 """
 import csv
 import dataclasses
@@ -39,9 +43,9 @@ from affect.eval.metrics import report, report_by_group
 from affect.registry import FEATURES, MODELS
 from affect.runs.provenance import collect, utc_now
 from affect.runs.spec import check_job, config_hash, input_width, validate_job
-from affect.train.data import (EXTERNAL_LABEL_SETS, GENDERS, VA_SCALES, class_weights, eval_batches, gender_index,
-                               job_source, prepare, prepare_external, segment_batches, speaker_index, train_order,
-                               training_waves, va_ratings)
+from affect.train.data import (EXTERNAL_LABEL_SETS, GENDERS, VA_SCALES, class_weights, eval_batches, external_source,
+                               gender_index, job_source, prepare, prepare_external, segment_batches, speaker_index,
+                               train_order, training_waves, va_ratings)
 
 
 def augmentation_rng(seed: int) -> np.random.Generator:
@@ -578,6 +582,114 @@ def _external_files_more_classes(external, model, features, normalizer, ts, segm
     return metrics, buffer.getvalue(), pred.seconds
 
 
+def warm_start_files(external, model, job, features, normalizer, segment, device, seed: int, model_classes,
+                     log, rate=None) -> tuple:
+    """F2 (train.warm_start, added 2026-10-29): the chosen epoch's model adapted to a test corpus film fold by film
+    fold, each clip scored by the model adapted on the other folds' clips. Returns (metrics, predictions CSV text,
+    seconds); the model's weights are those it came with when this returns. Scored like external_files: each clip
+    gets the most probable of the corpus's classes (the model's other outputs left out, the rest renormalised), with
+    the strict scoring beside when the model has more classes. rate (added 2026-11-05): what crop_s counts per second
+    in external.audio, the encoder's frame rate when it holds a frames job's frames (affect.train.data.
+    external_source); None, the corpus's sample rate, as before."""
+    import torch
+
+    from affect.classical.finetune import film_folds
+
+    ts = job.train
+    model_classes = tuple(model_classes)
+    missing = [c for c in external.class_names if c not in model_classes]
+    if missing:
+        raise ValueError(f"{external.dataset}: classes {missing} are not among the model's {list(model_classes)}")
+    columns = np.array([model_classes.index(c) for c in external.class_names], dtype=np.int64)
+    films = [u.extra["film"] for u in external.utterances]
+    fold_of = film_folds(films, ts.warm_start_folds)
+    folds = np.array([fold_of[f] for f in films], dtype=np.int64)
+    crop_len = int(round(ts.crop_s * (external.sample_rate if rate is None else rate)))
+    start_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+    probs = np.full((len(external.utterances), len(model_classes)), np.nan, dtype=np.float64)
+    curves, start = [], time.perf_counter()
+    for j in range(ts.warm_start_folds):
+        held = np.flatnonzero(folds == j).astype(np.int64)
+        train = np.flatnonzero(folds != j).astype(np.int64)
+        steps = train.shape[0] // ts.batch_size
+        if ts.max_batches_per_epoch is not None:
+            steps = min(steps, ts.max_batches_per_epoch)
+        if held.shape[0] == 0 or steps < 1:
+            raise ValueError(f"film fold {j}: {held.shape[0]} clips held out, {train.shape[0]} to train on in batches "
+                             f"of {ts.batch_size}")
+        model.load_state_dict(start_state)
+        torch.manual_seed(int(seed) * 1000 + 29 + j)          # dropout: its own draws, after every IEMOCAP number
+        rng = np.random.default_rng([int(seed), 20261029, j])
+        augment_rng = np.random.default_rng([int(seed), 20261029, j, 1])
+        generator = torch.Generator().manual_seed(int(seed) * 1000 + 30 + j)
+        targets = np.zeros((train.shape[0], len(model_classes)), dtype=np.float32)
+        targets[np.arange(train.shape[0]), columns[external.labels[train]]] = 1.0
+        optimizer = torch.optim.AdamW(model.parameters(), lr=ts.warm_start_lr, weight_decay=ts.weight_decay)
+        step = Step(job, model, None, features, normalizer, None, device)
+        for epoch in range(1, ts.warm_start_epochs + 1):
+            model.train()
+            order = rng.permutation(train.shape[0])
+            loss_sum = torch.zeros((), device=device)
+            for b in range(steps):
+                picked = order[b * ts.batch_size:(b + 1) * ts.batch_size]
+                rows = train[picked]
+                waves, lengths = training_waves(external.audio, rows, crop_len, (1.0,), rng, augment_rng)
+                loss, _, _, _ = step.loss(waves, lengths, rows, targets[picked], None, generator, augment_rng)
+                optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                optimizer.step()
+                loss_sum = loss_sum + loss.detach()
+            mean_loss = float(loss_sum.item()) / steps
+            if not math.isfinite(mean_loss):
+                raise FloatingPointError(f"warm start: training loss {mean_loss} in film fold {j}, epoch {epoch}")
+            curves.append({"film_fold": j, "epoch": epoch, "train_loss": mean_loss})
+        pred = predict(model, features, normalizer, external.audio, held, ts.eval_batch_size, device, ts.precision,
+                       segment)
+        probs[held] = pred.probs
+    model.load_state_dict(start_state)
+    seconds = time.perf_counter() - start
+    if not np.isfinite(probs).all():
+        raise RuntimeError("warm start: a clip was not scored")
+    shared = probs[:, columns]
+    shared = shared / shared.sum(axis=1, keepdims=True)
+    y_true, y_pred, y_model = external.labels, shared.argmax(axis=1), probs.argmax(axis=1)
+    metrics = report(y_true, y_pred, external.class_names)
+    for field in ("language", "gender"):
+        groups = np.array([u.extra[field] for u in external.utterances])
+        metrics[f"by_{field}"] = report_by_group(y_true, y_pred, groups, external.class_names)
+    metrics["by_film_fold"] = report_by_group(y_true, y_pred, folds.astype(str), external.class_names)
+    rows = np.arange(len(external.utterances))
+    metrics["mean_nll"] = float(-np.mean(np.log(np.clip(shared[rows, y_true], 1e-12, None))))
+    if model_classes != tuple(external.class_names):
+        metrics["strict"] = strict_report(y_true, y_model, external.class_names, model_classes)
+    metrics.update({"dataset": external.dataset, "manifest_sha256": external.manifest_sha256,
+                    "warm_start": {"film_folds": int(ts.warm_start_folds), "epochs": int(ts.warm_start_epochs),
+                                   "lr": float(ts.warm_start_lr), "weight_decay": float(ts.weight_decay),
+                                   "batch_size": int(ts.batch_size), "crop_s": float(ts.crop_s),
+                                   "as_the_job": ["crop length", "SpecAugment", "mixup", "batch size", "weight decay"],
+                                   "not_applied": ["label smoothing", "class weights", "balanced sampling",
+                                                   "speed perturbation", "the learning-rate schedule"],
+                                   "films_per_fold": [len({f for f, k in fold_of.items() if k == j})
+                                                      for j in range(ts.warm_start_folds)],
+                                   "clips_per_fold": np.bincount(folds, minlength=ts.warm_start_folds).tolist(),
+                                   "curves": curves},
+                    "scoring": ("each clip scored once, by the model adapted on the other film folds' clips; the most "
+                                "probable of the corpus's classes, the model's other classes left out and the rest "
+                                "renormalised"),
+                    "seconds": round(seconds, 3)})
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(["utt_id", "speaker", "film", "film_fold", "language", "gender", "label", "pred", "pred_all"]
+                    + [f"prob_{c}" for c in model_classes])
+    for k, u in enumerate(external.utterances):
+        writer.writerow([u.utt_id, u.speaker, u.extra["film"], int(folds[k]), u.extra["language"], u.extra["gender"],
+                         u.label, external.class_names[int(y_pred[k])], model_classes[int(y_model[k])]]
+                        + [f"{p:.6f}" for p in probs[k]])
+    log(f"  {external.dataset} warm start: {ts.warm_start_folds} film folds, {ts.warm_start_epochs} epochs each at lr "
+        f"{ts.warm_start_lr}, every clip scored by a model that never saw its film (metrics_{external.dataset}_warm.json)")
+    return metrics, buffer.getvalue(), seconds
+
+
 def gender_report(true_gender: np.ndarray, aux_probs: np.ndarray) -> dict:
     """How well the gender head predicts the speaker's gender: accuracy, recall per gender present
     (a split may hold one gender only), and the mean of those recalls."""
@@ -612,6 +724,13 @@ def train_job(spec: dict, device, log) -> dict:
     val_rows = np.array([prepared.position[u] for u in roles["val"]], dtype=np.int64)
     test_rows = np.array([prepared.position[u] for u in roles["test"]], dtype=np.int64)
     ts, seed = job.train, int(spec["seed"])
+    refit = ts.refit == "train_and_val"
+    if refit:
+        # E1 (added 2026-10-29): the training and validation sessions train together, for refit_epochs epochs; the
+        # validation rows stay val_rows for the files written at the end
+        if getattr(fold, "selection_on_test", False):
+            raise ValueError(f"fold {fold.name} validates on its test session, so a refit would train on the test set")
+        train_rows = np.concatenate([train_rows, val_rows])
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     mask_generator = torch.Generator().manual_seed(seed)
@@ -686,13 +805,16 @@ def train_job(spec: dict, device, log) -> dict:
         extras.append(f"valence and activation head, {ts.aux_va_loss} loss, weight {ts.aux_va_weight}")
     if segment is not None:
         extras.append(f"evaluation on {ts.eval_segment_s}s segments every {ts.eval_segment_hop_s}s")
+    if refit:
+        extras.append(f"refit on the training and validation sessions for {ts.refit_epochs} epochs (the schedule of "
+                      f"{ts.epochs}), no validation")
     log(f"run {spec['run_id']}: fold {fold.name} (val {fold.val_group}), seed {seed}, train {train_rows.shape[0]}, "
         f"val {val_rows.shape[0]}, test {test_rows.shape[0]}, {n_parameters} parameters, {steps_per_epoch} steps/epoch"
         + "".join(f", {e}" for e in extras))
     curves, best_ua, best_epoch, best_state, best_aux_state, stopped_early = [], -1.0, 0, None, None, False
     best_train_report = best_va_state = None
     train_start = time.perf_counter()
-    for epoch in range(1, ts.epochs + 1):
+    for epoch in range(1, (ts.refit_epochs if refit else ts.epochs) + 1):
         model.train()
         if aux_head is not None:
             aux_head.train()
@@ -734,6 +856,21 @@ def train_job(spec: dict, device, log) -> dict:
         if not math.isfinite(train_loss):
             raise FloatingPointError(f"training loss is {train_loss} in epoch {epoch}")
         train_seconds = time.perf_counter() - epoch_start
+        if refit:
+            # nothing is held out: the epoch is not validated, nothing is chosen, and training goes to refit_epochs
+            curve = {"epoch": epoch, "train_loss": train_loss, "lr": optimizer.param_groups[0]["lr"],
+                     "train_seconds": round(train_seconds, 3)}
+            if aux_head is not None or contrastive_head is not None or va_head is not None:
+                curve["train_loss_emotion"] = float(emotion_sum.item()) / max(1, steps_per_epoch)
+            if aux_head is not None:
+                curve["train_loss_gender"] = float(gender_sum.item()) / max(1, steps_per_epoch)
+            if contrastive_head is not None:
+                curve["train_loss_contrastive"] = float(contrastive_sum.item()) / max(1, steps_per_epoch)
+            if va_head is not None:
+                curve["train_loss_va"] = float(va_sum.item()) / max(1, steps_per_epoch)
+            curves.append(curve)
+            log(f"  epoch {epoch:3d} loss {train_loss:.4f} ({train_seconds:.1f}s; refit, not validated)")
+            continue
         predicted = predict(model, features, normalizer, source, val_rows, ts.eval_batch_size, device,
                             ts.precision, segment, None, va_head)
         val = evaluate(prepared, val_rows, predicted.probs)
@@ -780,11 +917,14 @@ def train_job(spec: dict, device, log) -> dict:
             break
     train_total = time.perf_counter() - train_start
 
-    model.load_state_dict(best_state)
-    if aux_head is not None:
-        aux_head.load_state_dict(best_aux_state)
-    if va_head is not None:
-        va_head.load_state_dict(best_va_state)
+    if refit:
+        best_epoch = len(curves)            # the last epoch's weights are the model
+    else:
+        model.load_state_dict(best_state)
+        if aux_head is not None:
+            aux_head.load_state_dict(best_aux_state)
+        if va_head is not None:
+            va_head.load_state_dict(best_va_state)
     spiking = hasattr(model, "spike_report")          # the LIF models record spikes on this pass (2026-09-29)
     if spiking:
         model.record(True)
@@ -799,7 +939,9 @@ def train_job(spec: dict, device, log) -> dict:
     test_pred = predict(model, features, normalizer, source, test_rows, ts.eval_batch_size, device,
                         ts.precision, segment, aux_head, va_head)
     val_final = evaluate(prepared, val_rows, val_pred.probs)
-    if abs(val_final["ua"] - best_ua) > 1e-9:
+    if refit:
+        best_ua = val_final["ua"]           # of utterances the model trained on: recorded, not a validation result
+    elif abs(val_final["ua"] - best_ua) > 1e-9:
         log(f"  note: best-epoch weights reloaded give val UA {val_final['ua']:.6f}, recorded {best_ua:.6f}")
     peak_mib = torch.cuda.max_memory_allocated(device) / 2 ** 20 if device.type == "cuda" else None
     external = None
@@ -812,10 +954,19 @@ def train_job(spec: dict, device, log) -> dict:
             raise ValueError(f"{ext.dataset}: classes {ext.class_names} at {ext.sample_rate} Hz, the job's "
                              f"{prepared.class_names} at {prepared.sample_rate} Hz")
         more = None if ext.class_names == prepared.class_names else prepared.class_names
+        # what the features read of the corpus (added 2026-11-05): its samples for a log-mel job, exactly as before;
+        # the corpus's frames of the job's encoder and layer for a frames job, counted at the encoder's frame rate
+        ext, ext_rate = external_source(job, ext)
         external = (ext, *external_files(ext, model, features, normalizer, ts, segment, device, more))
         # the log is read with the validation files, so it names the external test without its result
         log(f"  {ext.dataset}: {len(ext.utterances)} utterances scored (metrics_{ext.dataset}.json), never trained "
             f"or chosen on")
+    warm = None
+    if ts.warm_start != "none":
+        # F2 (added 2026-10-29): after the cold scores, the same weights adapted film fold by film fold; the weights
+        # come back unchanged, and every IEMOCAP number above is already fixed
+        warm = warm_start_files(external[0], model, job, features, normalizer, segment, device, seed,
+                                prepared.class_names, log, rate=ext_rate)
     provenance = collect("affect.train.loop")
     provenance.update({
         "started_utc": started, "finished_utc": utc_now(), "torch": torch.__version__,
@@ -825,6 +976,10 @@ def train_job(spec: dict, device, log) -> dict:
     })
     metrics_val = {"best_epoch": best_epoch, "best_val_ua": best_ua, "epochs_run": len(curves),
                    "stopped_early": stopped_early, "curves": curves, "final": val_final}
+    if refit:
+        metrics_val["refit"] = {"rows": "train_and_val", "epochs": ts.refit_epochs, "schedule_epochs": ts.epochs,
+                                "note": "the validation session was trained on, so these validation numbers are not "
+                                        "held out; the test session was not"}
     if ts.eval_train == "every_epoch":
         # the training utterances' full report (per-class recall, confusion matrix) at the chosen epoch
         metrics_val["train_final"] = best_train_report
@@ -867,4 +1022,9 @@ def train_job(spec: dict, device, log) -> dict:
         efficiency[f"{ext.dataset}_seconds"] = round(ext_seconds, 3)
         files[f"metrics_{ext.dataset}.json"] = ext_metrics
         files[f"predictions_{ext.dataset}.csv"] = ext_csv
+    if warm is not None:
+        warm_metrics, warm_csv, warm_seconds = warm
+        efficiency[f"{external[0].dataset}_warm_seconds"] = round(warm_seconds, 3)
+        files[f"metrics_{external[0].dataset}_warm.json"] = warm_metrics
+        files[f"predictions_{external[0].dataset}_warm.csv"] = warm_csv
     return files

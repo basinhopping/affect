@@ -1,0 +1,97 @@
+{
+ "sweep_id": "classical_pretrained_whisper_large_v3_so4_1",
+ "description": "Night 30 (2026-10-29; Dr. Luitel, 2026-10-21: a pretrained spectrogram classifier or a pretrained model on spectrograms): Whisper large-v3's encoder (openai/whisper-large-v3; trained on transcribed speech, a labeled reference), frozen, reading the log-mel spectrogram its own feature extractor makes; each of its 33 layers' mean vector per utterance (over the outputs covering the utterance's samples) with the SVM of night 19c's classical_pretrained_wavlm_large_so4_1, whose settings this sweep keeps except the feature set. Seed 1. How the results are read is fixed in RULE_night30.txt (analyses/night30_prep_20261029) before any run. Runs on CPUs in the classical environment.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "functionals": {
+   "feature_set": "whisper_large_v3_l0",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "layer0",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "layers",
+   "kind": "grid",
+   "priority": 100,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "whisper_large_v3_l1",
+     "whisper_large_v3_l2",
+     "whisper_large_v3_l3",
+     "whisper_large_v3_l4",
+     "whisper_large_v3_l5",
+     "whisper_large_v3_l6",
+     "whisper_large_v3_l7",
+     "whisper_large_v3_l8",
+     "whisper_large_v3_l9",
+     "whisper_large_v3_l10",
+     "whisper_large_v3_l11",
+     "whisper_large_v3_l12",
+     "whisper_large_v3_l13",
+     "whisper_large_v3_l14",
+     "whisper_large_v3_l15",
+     "whisper_large_v3_l16",
+     "whisper_large_v3_l17",
+     "whisper_large_v3_l18",
+     "whisper_large_v3_l19",
+     "whisper_large_v3_l20",
+     "whisper_large_v3_l21",
+     "whisper_large_v3_l22",
+     "whisper_large_v3_l23",
+     "whisper_large_v3_l24",
+     "whisper_large_v3_l25",
+     "whisper_large_v3_l26",
+     "whisper_large_v3_l27",
+     "whisper_large_v3_l28",
+     "whisper_large_v3_l29",
+     "whisper_large_v3_l30",
+     "whisper_large_v3_l31",
+     "whisper_large_v3_l32"
+    ]
+   }
+  }
+ ]
+}

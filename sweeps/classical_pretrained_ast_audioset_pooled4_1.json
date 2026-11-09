@@ -1,0 +1,77 @@
+{
+ "sweep_id": "classical_pretrained_ast_audioset_pooled4_1",
+ "description": "Night 30 (2026-10-29; Dr. Luitel, 2026-10-21: a pretrained spectrogram classifier or a pretrained model on spectrograms): the Audio Spectrogram Transformer fine-tuned on AudioSet (MIT/ast-finetuned-audioset-10-10-0.4593; sound-event labels, no transcripts), frozen, reading the log-mel spectrogram its own feature extractor makes; each of its 13 layers' mean vector per utterance (over the outputs covering the utterance's samples) with the SVM of night 19c's classical_pretrained_wavlm_large_pooled4_1, whose settings this sweep keeps except the feature set. Seed 1. How the results are read is fixed in RULE_night30.txt (analyses/night30_prep_20261029) before any run. Runs on CPUs in the classical environment.",
+ "folds": [
+  "test_G1",
+  "test_G2",
+  "test_G3",
+  "test_G4",
+  "test_G5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "utterance_5fold"
+  },
+  "functionals": {
+   "feature_set": "ast_audioset_l0",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "layer0",
+   "kind": "base",
+   "priority": 99,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "layers",
+   "kind": "grid",
+   "priority": 99,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "ast_audioset_l1",
+     "ast_audioset_l2",
+     "ast_audioset_l3",
+     "ast_audioset_l4",
+     "ast_audioset_l5",
+     "ast_audioset_l6",
+     "ast_audioset_l7",
+     "ast_audioset_l8",
+     "ast_audioset_l9",
+     "ast_audioset_l10",
+     "ast_audioset_l11",
+     "ast_audioset_l12"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,77 @@
+{
+ "sweep_id": "classical_pretrained_bud_e_whisper_so3_1",
+ "description": "Week 32 (2026-11-07; Harrison, 2026-11-07: BUD-E-Whisper and Whisper medium as the fifth and sixth encoders, to see how far the Whisper heads go): BUD-E-Whisper's encoder (laion/BUD-E-Whisper; Whisper Small fine-tuned by LAION to caption emotional speech, Whisper Small's shape), frozen, reading the 80-band log-mel spectrogram its own feature extractor makes; each of its 13 layers' mean vector per utterance (over the encoder frames that cover the utterance's own samples, as for large-v3) with the SVM of night 30's classical_pretrained_whisper_large_v3_so3_1, whose settings this sweep keeps except the feature set. Seed 1. The layer with the highest mean validation macro accuracy over the 5 folds is chosen, a tie to the lower layer (RULE_week32_addendum9.txt part N). How the results are read is fixed in RULE_week32_addendum9.txt (analyses/week32_prep_20261102) before any run. Runs on CPUs in the classical environment.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "three_no_neutral",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "functionals": {
+   "feature_set": "bud_e_whisper_l0",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "layer0",
+   "kind": "base",
+   "priority": 98,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "layers",
+   "kind": "grid",
+   "priority": 98,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "bud_e_whisper_l1",
+     "bud_e_whisper_l2",
+     "bud_e_whisper_l3",
+     "bud_e_whisper_l4",
+     "bud_e_whisper_l5",
+     "bud_e_whisper_l6",
+     "bud_e_whisper_l7",
+     "bud_e_whisper_l8",
+     "bud_e_whisper_l9",
+     "bud_e_whisper_l10",
+     "bud_e_whisper_l11",
+     "bud_e_whisper_l12"
+    ]
+   }
+  }
+ ]
+}

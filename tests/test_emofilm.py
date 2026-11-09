@@ -116,7 +116,8 @@ class TestExternalSettings(unittest.TestCase):
         self.assertEqual(off["train"]["external_test"], "none")
         self.assertNotEqual(config_hash(validate_job(on)), config_hash(validate_job(off)))
         late = json.loads(json.dumps(off))
-        for field in ("external_test", "aux_va", "aux_va_weight", "aux_va_loss"):   # the form before 2026-10-20
+        for field in ("external_test", "aux_va", "aux_va_weight", "aux_va_loss", "refit", "refit_epochs", "warm_start",
+                      "warm_start_folds", "warm_start_epochs", "warm_start_lr"):   # the form before 2026-10-20
             del late["train"][field]
         self.assertEqual(config_hash(validate_job(late)), config_hash(validate_job(off)))
         four = json.loads(json.dumps(on))

@@ -1,0 +1,89 @@
+{
+ "sweep_id": "classical_pretrained_w2v_bert_2_so4_1",
+ "description": "Week 32 (2026-11-02; Dr. Luitel, 2026-11-02: every pretrained spectrogram model, with my heads tuned on each): w2v-BERT 2.0 (facebook/w2v-bert-2.0; a Conformer pretrained without labels on 4.5 million hours of speech), frozen, reading the 80-band mel filterbank its own feature extractor makes; each of its 25 layers' mean vector per utterance (over the frames its feature extractor marks real) with the SVM of night 30's classical_pretrained_whisper_large_v3_so4_1, whose settings this sweep keeps except the feature set. Seed 1. The layer with the highest mean validation macro accuracy over the 5 folds is chosen, a tie to the lower layer (RULE_week32.txt part 6). How the results are read is fixed in RULE_week32.txt (analyses/week32_prep_20261102) before any run. Runs on CPUs in the classical environment.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "functionals": {
+   "feature_set": "w2v_bert_2_l0",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train"
+  }
+ },
+ "stages": [
+  {
+   "name": "layer0",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  },
+  {
+   "name": "layers",
+   "kind": "grid",
+   "priority": 100,
+   "seeds": [
+    1
+   ],
+   "factors": {
+    "functionals.feature_set": [
+     "w2v_bert_2_l1",
+     "w2v_bert_2_l2",
+     "w2v_bert_2_l3",
+     "w2v_bert_2_l4",
+     "w2v_bert_2_l5",
+     "w2v_bert_2_l6",
+     "w2v_bert_2_l7",
+     "w2v_bert_2_l8",
+     "w2v_bert_2_l9",
+     "w2v_bert_2_l10",
+     "w2v_bert_2_l11",
+     "w2v_bert_2_l12",
+     "w2v_bert_2_l13",
+     "w2v_bert_2_l14",
+     "w2v_bert_2_l15",
+     "w2v_bert_2_l16",
+     "w2v_bert_2_l17",
+     "w2v_bert_2_l18",
+     "w2v_bert_2_l19",
+     "w2v_bert_2_l20",
+     "w2v_bert_2_l21",
+     "w2v_bert_2_l22",
+     "w2v_bert_2_l23",
+     "w2v_bert_2_l24"
+    ]
+   }
+  }
+ ]
+}

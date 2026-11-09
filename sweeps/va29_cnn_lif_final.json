@@ -1,0 +1,120 @@
+{
+ "sweep_id": "va29_cnn_lif_final",
+ "description": "Night 29 (2026-10-28; Dr. Luitel, 2026-10-21: can we train with valence and arousal): the confirmation of the valence and activation head on lif_final (553e54c97626): of the three settings in va25_cnn_lif_final, the one with the highest mean validation UA over its 5 folds and seeds 1 to 3, valence and activation head, MSE loss, weight 1.0 (d7ec164f7a92, 0.6272; the finalist's runs there 0.6190), exactly as the screen ran it, on seeds 6 to 10, the seeds of lif_final's record. Nothing is chosen from these runs. How the results are read is fixed in RULE_night29.txt (analyses/night29_prep_20261028) before any run. Priority 149.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 64,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 8,
+   "time_masks": 2,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn_lif",
+   "channels": [
+    32,
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 3,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu",
+   "freq_reduce": "mean",
+   "time_pool": 4,
+   "lif_hidden": [
+    256
+   ],
+   "recurrent": false,
+   "lif_norm": "layer",
+   "lif_dropout": 0.3,
+   "beta": 0.8,
+   "learn_beta": "none",
+   "threshold": 0.5,
+   "reset": "zero",
+   "detach_reset": false,
+   "surrogate": "boxcar",
+   "surrogate_slope": 1.0,
+   "readout_beta": 0.5,
+   "rate_weight": 1.0,
+   "rate_target": 0.2,
+   "dropout": 0.3
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 5.0,
+   "class_balance": "weighted_loss",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch",
+   "contrastive": "none",
+   "contrastive_weight": 0.0,
+   "contrastive_temperature": null,
+   "contrastive_dim": null,
+   "external_test": "none",
+   "aux_va": "multitask",
+   "aux_va_weight": 1.0,
+   "aux_va_loss": "mse"
+  }
+ },
+ "stages": [
+  {
+   "name": "record",
+   "kind": "base",
+   "priority": 149,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  }
+ ]
+}

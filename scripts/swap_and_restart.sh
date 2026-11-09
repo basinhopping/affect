@@ -12,6 +12,8 @@
 #    the archive installed before (the last line of CODE_VERSIONS.log) is installed again, and nothing is enqueued.
 # 3. requeue-running, the STOP files removed, and gpu_schedule.sh's night step now: 3 workers on every GPU no other
 #    user is on. The end step of a schedule already running (its own tmux session) still stops them at its time.
+#    With SWAP_GPUS (added 2026-11-01), only the GPUs it lists get workers again and only their stop files go, for a
+#    GPU left to another user for the night.
 # 4. smoke_enqueue.sh with the sweeps given, on SMOKE_GPU (default 2), while the workers run.
 # The first use, 2026-10-24, failed: unpack.sh then deleted the old code, and on the node's NFS home a file still
 # held open by the night's schedule could not be deleted; unpack.sh moves old code aside since 2026-10-26.
@@ -26,6 +28,8 @@ PGREP_CMD="${PGREP_CMD:-pgrep}"
 POLL="${SWAP_POLL_SECONDS:-20}"
 WAIT_MINUTES="${WAIT_MINUTES:-90}"
 SMOKE_GPU="${SMOKE_GPU:-2}"
+SWAP_GPUS="${SWAP_GPUS:-}"     # e.g. "3": restart only these GPUs' workers (added 2026-11-01); empty: every free GPU
+case "$SWAP_GPUS" in *[!0-3\ ]*) echo "SWAP_GPUS holds GPU numbers 0 to 3 only, not $SWAP_GPUS"; exit 1 ;; esac
 ARCHIVE="${1:?usage: swap_and_restart.sh <archive> <digest> [<sweep id> ...]}"
 DIGEST="${2:?usage: swap_and_restart.sh <archive> <digest> [<sweep id> ...]}"
 shift 2
@@ -46,8 +50,21 @@ running() {   # how many gpu sessions and classical processes are still running
 }
 restart() {
     (cd "$ROOT" && bash scripts/affect.sh requeue-running --all-workers-stopped) >> "$LOG" 2>&1
-    rm -f "$ROOT/queue/STOP" "$ROOT/queue/STOP_gpu0" "$ROOT/queue/STOP_gpu1" "$ROOT/queue/STOP_gpu2" "$ROOT/queue/STOP_gpu3"
-    (cd "$ROOT" && SCHEDULE="$(date +%s):night" bash scripts/gpu_schedule.sh) >> "$LOG" 2>&1
+    if [ -n "$SWAP_GPUS" ]; then
+        # only these GPUs get 3 workers again (added 2026-11-01, for a GPU left to another user for the night): the
+        # other GPUs' stop files stay, and no other GPU is started
+        rm -f "$ROOT/queue/STOP"
+        local g
+        for g in $SWAP_GPUS; do
+            rm -f "$ROOT/queue/STOP_gpu$g"
+            if "$TMUX_CMD" has-session -t "gpu$g" 2>/dev/null; then say "GPU $g already has its workers"; continue; fi
+            "$TMUX_CMD" new -d -s "gpu$g" "bash $ROOT/scripts/worker.sh $g 3"
+            say "GPU $g started (3 workers, tmux session gpu$g)"
+        done
+    else
+        rm -f "$ROOT/queue/STOP" "$ROOT/queue/STOP_gpu0" "$ROOT/queue/STOP_gpu1" "$ROOT/queue/STOP_gpu2" "$ROOT/queue/STOP_gpu3"
+        (cd "$ROOT" && SCHEDULE="$(date +%s):night" bash scripts/gpu_schedule.sh) >> "$LOG" 2>&1
+    fi
     say "workers started: $("$TMUX_CMD" ls 2>/dev/null | grep -c '^gpu') gpu sessions; pending $(ls "$ROOT/queue/pending" | wc -l)"
 }
 

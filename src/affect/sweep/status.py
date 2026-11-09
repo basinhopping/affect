@@ -38,7 +38,8 @@ def collect_runs(sweep_id: str) -> dict:
                                  "config_hash": spec["config_hash"], "fold": spec["fold"], "seed": spec["seed"],
                                  "control": control_of(spec["settings"]),
                                  "best_val_ua": metrics["best_val_ua"], "best_epoch": metrics["best_epoch"],
-                                 "epochs_run": metrics["epochs_run"], "train_seconds": efficiency["train_seconds"]})
+                                 "epochs_run": metrics["epochs_run"], "train_seconds": efficiency["train_seconds"],
+                                 "refit": "refit" in metrics})
     return {"complete": complete, "failed": failed, "in_progress": in_progress}
 
 
@@ -79,7 +80,8 @@ def summarise(sweep_id: str) -> dict:
             alerts.append(f"STOP CONDITION 4: control '{g['label']}' seed {g['seed']} reaches validation UA "
                           f"{g['fold_mean_val_ua']:.4f}, above 0.30")
     for r in runs["complete"]:
-        if r["best_val_ua"] > 0.80:
+        # a refit run (added 2026-10-29) trained on its validation session, so a high number there is expected
+        if r["best_val_ua"] > 0.80 and not r["refit"]:
             alerts.append(f"CONDITION 5: {r['run_id']} reaches validation UA {r['best_val_ua']:.4f}; investigate")
     seconds = [r["train_seconds"] for r in runs["complete"]]
     return {"sweep_id": sweep_id, "folds": folds, "queue": Queue(paths.queue_dir()).counts(sweep_id),

@@ -7,18 +7,22 @@
 # weekend days when only GPUs 2 and 3 are used), and enqueued only if the test ends with SMOKE OK; one that
 # fails is reported as NOT ENQUEUED with its smoke log, and the next sweep follows. Jobs run in priority order,
 # so the order given only orders sweeps of equal priority. Ends with ALL DONE and the number of pending jobs.
+# Since 2026-11-02 the verdict comes from the smoke test's own exit status and output, kept in
+# logs/smoke_<sweep id>_<utc>.txt, not from the newest logs/smoke_*.log (another smoke test may run at the same time).
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
+mkdir -p logs
 SMOKE_GPU="${SMOKE_GPU:-0}"
 case "$SMOKE_GPU" in 0|1|2|3) ;; *) echo "SMOKE_GPU must be 0, 1, 2 or 3, not $SMOKE_GPU"; exit 1 ;; esac
 for s in "$@"; do
     if [ -d "artifacts/sweeps/$s" ]; then echo "already enqueued: $s"; continue; fi
     if [ ! -f "sweeps/$s.json" ]; then echo "NOT ENQUEUED: $s, no file sweeps/$s.json"; continue; fi
+    L="logs/smoke_${s}_$(date -u +%Y%m%dT%H%M%S%NZ).txt"
     CUDA_VISIBLE_DEVICES="$SMOKE_GPU" bash scripts/affect.sh smoke --sweep-file "sweeps/$s.json" --expected-gpus 1 \
-        | grep -E "^sweep |FAILED|^timing|^SMOKE"
-    RC=${PIPESTATUS[0]}
-    L=$(ls -t logs/smoke_*.log 2>/dev/null | head -1)
-    if [ "$RC" = 0 ] && [ -n "$L" ] && grep -q "^SMOKE OK" "$L"; then
+        > "$L" 2>&1
+    RC=$?
+    grep -E "^sweep |FAILED|^timing|^SMOKE" "$L"
+    if [ "$RC" = 0 ] && grep -q "^SMOKE OK" "$L"; then
         bash scripts/affect.sh enqueue --sweep-file "sweeps/$s.json" 2>&1 | grep -E '^ "(sweep_id|configs|jobs)"|Error'
     else
         echo "NOT ENQUEUED: $s, see $L"

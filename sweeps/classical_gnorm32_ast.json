@@ -1,0 +1,53 @@
+{
+ "sweep_id": "classical_gnorm32_ast",
+ "description": "Week 32 (2026-11-02 to 2026-11-09; Dr. Luitel, 2026-11-02: spectrogram models only, only refits reported, speaker-specific against session-specific, scripted against improvised): the SVM probe probe30_ast_audioset_so4 (76d865104e2f) with each feature standardized on the training sessions (normalization global) instead of on each speaker's own utterances, refitted on training plus validation: the check that the probe gains nothing from seeing the test speaker's unlabeled frames. Seed 1. How the results are read is fixed in RULE_week32.txt (analyses/week32_prep_20261102) before any run. Runs on CPUs.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "functionals": {
+   "feature_set": "ast_audioset_l8",
+   "normalization": "global"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train_and_val"
+  }
+ },
+ "stages": [
+  {
+   "name": "refit",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  }
+ ]
+}

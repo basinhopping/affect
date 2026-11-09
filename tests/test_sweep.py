@@ -83,8 +83,14 @@ class TestExpand(unittest.TestCase):
         self.assertEqual(new["train"]["external_test"], "none")
         self.assertEqual((new["train"]["aux_va"], new["train"]["aux_va_weight"], new["train"]["aux_va_loss"]),
                          ("none", 0.0, "none"))
-        # the form of 2026-10-20 to 10-23: every field but the valence and activation ones (added 2026-10-24)
-        newest_before = json.loads(json.dumps(new))
+        self.assertEqual((new["train"]["refit"], new["train"]["refit_epochs"]), ("none", None))
+        self.assertEqual(new["train"]["warm_start"], "none")
+        # the form of 2026-10-24 to 10-28: every field but the refit and warm-start ones (added 2026-10-29)
+        before_refit = json.loads(json.dumps(new))
+        for field in ("refit", "refit_epochs", "warm_start", "warm_start_folds", "warm_start_epochs", "warm_start_lr"):
+            del before_refit["train"][field]
+        # the form of 2026-10-20 to 10-23: also without the valence and activation ones (added 2026-10-24)
+        newest_before = json.loads(json.dumps(before_refit))
         for field in ("aux_va", "aux_va_weight", "aux_va_loss"):
             del newest_before["train"][field]
         # the form of 2026-10-15 to 10-19: also without external_test (added 2026-10-20)
@@ -105,7 +111,7 @@ class TestExpand(unittest.TestCase):
             for field in fields:
                 del old[section][field]
         for name, form in (("old", old), ("middle", middle), ("late", late), ("recent", recent),
-                           ("newest_before", newest_before), ("new", new)):
+                           ("newest_before", newest_before), ("before_refit", before_refit), ("new", new)):
             self.assertEqual(config_hash(validate_job(form)), jobs[0]["config_hash"], name)
             self.assertEqual(plain(validate_job(form)), new, name)
         changed = json.loads(json.dumps(new))

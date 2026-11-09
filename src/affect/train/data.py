@@ -142,6 +142,20 @@ def job_source(job, prepared) -> tuple:
     return prepared.audio, prepared.sample_rate
 
 
+def external_source(job, external: External) -> tuple:
+    """(the test corpus as the job's features read it, the rate per second that crop_s and the evaluation segments
+    count in), as job_source is for the job's own dataset (added 2026-11-05, the films of the heads): the corpus itself
+    and its sample rate for a log-mel job, unchanged; for a frames job a copy whose audio holds the corpus's frames of
+    the job's encoder and layer (artifacts/features/<corpus>/<model>_l<k>_frames, extract-frames), one array per clip
+    in the corpus's order, and the encoder's frame rate. The copy keeps the corpus's sample rate, labels and manifest."""
+    if job.features_name == "pretrained_frames":
+        from affect.features import frames
+
+        return (dataclasses.replace(external, audio=frames.source(external.dataset, job.features, external.utterances)),
+                frames.frame_rate(job.features))
+    return external, external.sample_rate
+
+
 def speaker_index(utterances: list) -> tuple:
     """(speaker names in sorted order, the speaker's position in that order for every row)."""
     names = tuple(sorted({u.speaker for u in utterances}))

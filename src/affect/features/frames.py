@@ -15,8 +15,15 @@ A job with these features reads each utterance's frames where a log-mel job read
 all take frames, and crop_s and the evaluation segments count seconds at the encoder's frame rate. The feature
 callable turns a batch of frames [batch, frames, width] into [batch, width, frames], the layout of a log-mel batch,
 so the normalization (per dimension), SpecAugment's time masks and the heads see what they always see; its width
-plays the part of the mel bands. The heads are affect.models.frames. Speed perturbation and the external test need
-the audio, so runs.spec.check_job refuses them with these features.
+plays the part of the mel bands. The heads are affect.models.frames. Speed perturbation needs the audio, so
+runs.spec.check_job refuses it with these features. The external test (refused until 2026-11-05, the films of the
+heads) reads the test corpus's frames of the same encoder and layer, extracted like IEMOCAP's into
+artifacts/features/<corpus>/ (extract-frames --dataset emofilm; affect.train.data.external_source), and so does the
+warm start on its films. Whisper large-v3's frames (added 2026-11-01) are the
+encoder's outputs that cover each utterance's own samples (affect.classical.pretrained.load_whisper_frame_encoder);
+AST's (added 2026-11-02) its patch tokens of each time column averaged over the frequency rows, 10 a second
+(load_ast_frame_encoder); w2v-BERT 2.0's (added 2026-11-02) its outputs for the filterbank frames its feature extractor
+marks real (load_frame_encoder).
 """
 import dataclasses
 import json
@@ -25,18 +32,28 @@ from typing import Literal
 import numpy as np
 
 from affect import paths
-from affect.classical.settings import PRETRAINED_MODELS
+from affect.classical.settings import PRETRAINED_MODELS, SPECTROGRAM_MODELS
 from affect.registry import register_feature
 
+# the waveform encoders, and (added 2026-11-01) Whisper large-v3's encoder, which reads a log-mel spectrogram: the
+# heads on its frames are the spectrogram version of the heads (Harrison, 2026-11-01: only models that read spectrograms
+# are compared; the waveform encoders are the control). Since 2026-11-02 (Dr. Luitel: every pretrained spectrogram
+# model, with my heads tuned on each) every encoder: AST, whose outputs are time-frequency patches, gives one frame per
+# time column, its patch tokens averaged over the frequency rows (affect.classical.pretrained.load_ast_frame_encoder),
+# and w2v-BERT 2.0 its Conformer's outputs. The spectrogram encoders are also probed through their layers' mean vectors
+# (affect.classical.pretrained).
 ENCODERS = tuple(PRETRAINED_MODELS)
-# frames per second of each encoder's hidden layers: a convolutional stride of 320 samples at 16 kHz
-FRAME_RATES = {model: 50 for model in ENCODERS}
+# frames per second of each encoder's hidden layers: 320 samples at 16 kHz a frame (the waveform encoders' convolutional
+# stride; Whisper's 10 ms mel hop times its second convolution's stride of 2; w2v-BERT 2.0's 10 ms filterbank frames
+# stacked in pairs); AST's time columns are 10 Kaldi frames of 10 ms apart
+FRAME_RATES = {model: (10 if model == "ast_audioset" else 50) for model in ENCODERS}
+assert set(SPECTROGRAM_MODELS) <= set(ENCODERS)
 
 
 @dataclasses.dataclass(frozen=True)
 class FramesSettings:
     model: Literal[ENCODERS]       # the frozen encoder (affect.classical.settings.PRETRAINED_MODELS)
-    layer: int                     # its hidden layer: 0 (the projected convolutional output) to 12 or 24
+    layer: int                     # its hidden layer: 0 (the encoder's input projection or embedding) to the last
     normalization: Literal["utterance", "global", "speaker", "none"]
     # as the log-mel's (affect.train.loop.Normalizer), per dimension of the layer: utterance, each dimension standardized
     # over the utterance's own frames; global, with the training frames' statistics; speaker, with every frame of the

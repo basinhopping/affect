@@ -1,0 +1,119 @@
+{
+ "sweep_id": "oscript32_threeblock",
+ "description": "Week 32 (2026-11-02 to 2026-11-09; Dr. Luitel, 2026-11-02: spectrogram models only, only refits reported, speaker-specific against session-specific, scripted against improvised): the record threeblock_final (e0c211fcced3) in the control of the script-held-out folds (the same test utterances, another script kept out of training and validation), refitted on its training and validation speakers together for 63 epochs, its session-specific refit (the median epoch its 25 session-specific runs chose), so nothing is chosen on these folds. Only data.split, train.refit and train.refit_epochs differ from the record. Seeds 6 to 10. How the results are read is fixed in RULE_week32.txt (analyses/week32_prep_20261102) before any run. Priority 170.",
+ "folds": [
+  "test_S1_script01",
+  "test_S1_script02",
+  "test_S1_script03",
+  "test_S2_script01",
+  "test_S2_script02",
+  "test_S2_script03",
+  "test_S3_script01",
+  "test_S3_script02",
+  "test_S3_script03",
+  "test_S4_script01",
+  "test_S4_script02",
+  "test_S4_script03",
+  "test_S5_script01",
+  "test_S5_script02",
+  "test_S5_script03"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out_other_script_held_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 40,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 12,
+   "time_masks": 2,
+   "time_mask_width": 30,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 5,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "stats",
+   "classifier_hidden": 128,
+   "dropout": 0.2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 100,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "none",
+   "contrastive": "none",
+   "contrastive_weight": 0.0,
+   "contrastive_temperature": null,
+   "contrastive_dim": null,
+   "external_test": "none",
+   "aux_va": "none",
+   "aux_va_weight": 0.0,
+   "aux_va_loss": "none",
+   "refit": "train_and_val",
+   "refit_epochs": 63,
+   "warm_start": "none",
+   "warm_start_folds": null,
+   "warm_start_epochs": null,
+   "warm_start_lr": null
+  }
+ },
+ "stages": [
+  {
+   "name": "refit",
+   "kind": "base",
+   "priority": 170,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  }
+ ]
+}

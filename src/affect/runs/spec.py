@@ -118,15 +118,14 @@ def check_job(job: Job, sample_rate: int) -> None:
         if job.model_name not in LOGMEL_MODELS:
             raise ValueError(f"model {job.model_name!r} reads a pretrained encoder's frames, not log-mel features")
     elif job.features_name == "pretrained_frames":
-        # added 2026-10-26: the frames are the encoder's, so nothing that changes the audio, and no corpus without
-        # extracted frames
+        # added 2026-10-26: the frames are the encoder's, so nothing that changes the audio. The external test (refused
+        # until 2026-11-05) reads the corpus's own frames of the same encoder and layer (affect.train.data.
+        # external_source), extracted like IEMOCAP's (extract-frames --dataset emofilm); the job finds them when it runs
         frames.check(job.features)
         if job.model_name not in FRAME_MODELS:
             raise ValueError(f"model {job.model_name!r} reads a log-mel image, not a pretrained encoder's frames")
         if tuple(job.augment.speed_factors) != (1.0,):
             raise ValueError("features pretrained_frames: speed perturbation changes the audio, not the frames")
-        if job.train.external_test != "none":
-            raise ValueError("features pretrained_frames: the external test needs the corpus's frames, not extracted")
     else:
         raise ValueError(f"no check for features {job.features_name!r}")
     n_mels = input_width(job)

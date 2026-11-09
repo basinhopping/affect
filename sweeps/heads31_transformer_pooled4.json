@@ -1,0 +1,102 @@
+{
+ "sweep_id": "heads31_transformer_pooled4",
+ "description": "Night 31 (Sunday 2026-11-01; Dr. Luitel, 2026-10-21: try my own LIF/Transformer on top of the pretrained model and see what is best): the transformer head on WavLM Large's layer-20 frames exactly as its record heads29_transformer (7472f2aff765, kept on validation and read on test on 2026-10-30), in four classes, session-agnostic (all sessions pooled, 5 utterance folds): only data.label_set and data.split differ from the record. Seeds 6 to 10, the record's; nothing is chosen from these runs. How the results are read is fixed in RULE_night31.txt (analyses/night31_prep_20261030) before any run. Priority 160.",
+ "folds": [
+  "test_G1",
+  "test_G2",
+  "test_G3",
+  "test_G4",
+  "test_G5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "utterance_5fold"
+  },
+  "features": {
+   "name": "pretrained_frames",
+   "model": "wavlm_large",
+   "layer": 20,
+   "normalization": "none"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 4,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "frames_transformer",
+   "time_pool": 2,
+   "input_dropout": 0.3,
+   "d_model": 128,
+   "n_heads": 4,
+   "n_layers": 2,
+   "ff_dim": 256,
+   "transformer_dropout": 0.1,
+   "transformer_activation": "gelu",
+   "norm_first": false,
+   "positional": "sinusoidal",
+   "pooling": "mean",
+   "classifier_hidden": null,
+   "activation": "gelu",
+   "dropout": 0.4
+  },
+  "train": {
+   "epochs": 60,
+   "batch_size": 16,
+   "lr": 0.0003,
+   "weight_decay": 0.05,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 4.0,
+   "class_balance": "balanced_sampler",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "none",
+   "contrastive": "none",
+   "contrastive_weight": 0.0,
+   "contrastive_temperature": null,
+   "contrastive_dim": null,
+   "external_test": "none",
+   "aux_va": "none",
+   "aux_va_weight": 0.0,
+   "aux_va_loss": "none",
+   "refit": "none",
+   "refit_epochs": null,
+   "warm_start": "none",
+   "warm_start_folds": null,
+   "warm_start_epochs": null,
+   "warm_start_lr": null
+  }
+ },
+ "stages": [
+  {
+   "name": "record",
+   "kind": "base",
+   "priority": 160,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  }
+ ]
+}

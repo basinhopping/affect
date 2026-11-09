@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# The pretrained models' night (added 2026-10-19): extract every listed model's layers on one GPU, one model after the
-# other, then run the listed classical sweeps at once, one process each (each runs its jobs one after another; the
-# SVM uses one CPU thread), and wait for all of them. Run on the node in its own tmux session, from the tree that holds
-# the code (here ~/affect_next while GPU workers run from ~/affect):
+# The pretrained models' night (added 2026-10-19; the spectrogram encoders whisper_large_v3 and ast_audioset added
+# 2026-10-29, w2v_bert_2 2026-11-02, whisper_small 2026-11-05, bud_e_whisper and whisper_medium 2026-11-07): extract
+# every listed model's layers on one GPU, one model after the other, then run the listed classical sweeps at once, one
+# process each (each runs its jobs one after another; the SVM uses one CPU thread), and wait for all of them. Run on
+# the node in its own tmux session, from the tree that holds the code (here ~/affect_next while GPU workers run from
+# ~/affect):
 #     tmux new -d -s pretrained19 "CUDA_VISIBLE_DEVICES=3 bash ~/affect_next/scripts/pretrained_night.sh \
 #         [--label-set <label set>] --models wavlm_base_plus hubert_base wav2vec2_base --sweeps <sweep id> [...]"
 # The utterances extracted are those of the label set, seven by default (every utterance of every set the project
@@ -30,9 +32,14 @@ SWEEPS=("$@")
 [ "${#MODELS[@]}" -gt 0 ] && [ "${#SWEEPS[@]}" -gt 0 ] || { echo "no models or no sweeps"; exit 1; }
 declare -A REPO=([wavlm_base_plus]=microsoft--wavlm-base-plus [hubert_base]=facebook--hubert-base-ls960
                  [wav2vec2_base]=facebook--wav2vec2-base [wavlm_large]=microsoft--wavlm-large
-                 [hubert_large]=facebook--hubert-large-ll60k [wav2vec2_large]=facebook--wav2vec2-large-lv60)
+                 [hubert_large]=facebook--hubert-large-ll60k [wav2vec2_large]=facebook--wav2vec2-large-lv60
+                 [whisper_large_v3]=openai--whisper-large-v3
+                 [ast_audioset]=MIT--ast-finetuned-audioset-10-10-0.4593 [w2v_bert_2]=facebook--w2v-bert-2.0
+                 [whisper_small]=openai--whisper-small [bud_e_whisper]=laion--BUD-E-Whisper
+                 [whisper_medium]=openai--whisper-medium)
 declare -A LAST=([wavlm_base_plus]=12 [hubert_base]=12 [wav2vec2_base]=12 [wavlm_large]=24 [hubert_large]=24
-                 [wav2vec2_large]=24)
+                 [wav2vec2_large]=24 [whisper_large_v3]=32 [ast_audioset]=12 [w2v_bert_2]=24 [whisper_small]=12
+                 [bud_e_whisper]=12 [whisper_medium]=24)
 for m in "${MODELS[@]}"; do
     [ -n "${REPO[$m]:-}" ] || { say "unknown model $m: stop"; exit 1; }
     if [ -f "artifacts/features/iemocap/${m}_l${LAST[$m]}/record.json" ]; then

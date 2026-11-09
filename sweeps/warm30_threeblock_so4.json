@@ -1,0 +1,109 @@
+{
+ "sweep_id": "warm30_threeblock_so4",
+ "description": "Night 30 (2026-10-29; Dr. Luitel, 2026-10-21: warm up the models and see if they adapt): night 25's emofilm25_threeblock_so4 (the record threeblock_final with the external test on EmoFilm) with the warm start: after the cold scores, the chosen epoch's weights trained for 10 epochs at 0.0001 (a tenth of the record's peak rate) on the clips of 4 of 5 film folds, each fold's clips scored by the model adapted on the other folds; its folds and seeds [6, 7, 8, 9, 10]. Nothing is chosen from these runs. How the results are read is fixed in RULE_night30.txt (analyses/night30_prep_20261029) before any run. Priority 146.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "logmel",
+   "win_ms": 25.0,
+   "hop_ms": 10.0,
+   "n_fft": 512,
+   "n_mels": 40,
+   "f_min": 0.0,
+   "f_max": 8000.0,
+   "log_offset": 1e-06,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 2,
+   "freq_mask_width": 12,
+   "time_masks": 2,
+   "time_mask_width": 30,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "cnn",
+   "channels": [
+    64,
+    128,
+    256
+   ],
+   "convs_per_block": 1,
+   "kernel_size": 5,
+   "pool_freq": 2,
+   "pool_time": 2,
+   "pooling": "stats",
+   "classifier_hidden": 128,
+   "dropout": 0.2,
+   "norm": "batch",
+   "norm_groups": null,
+   "norm_subbands": null,
+   "activation": "relu"
+  },
+  "train": {
+   "epochs": 100,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 20,
+   "crop_s": 10.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "every_epoch",
+   "contrastive": "none",
+   "contrastive_weight": 0.0,
+   "contrastive_temperature": null,
+   "contrastive_dim": null,
+   "external_test": "emofilm",
+   "aux_va": "none",
+   "aux_va_weight": 0.0,
+   "aux_va_loss": "none",
+   "refit": "none",
+   "refit_epochs": null,
+   "warm_start": "emofilm",
+   "warm_start_folds": 5,
+   "warm_start_epochs": 10,
+   "warm_start_lr": 0.0001
+  }
+ },
+ "stages": [
+  {
+   "name": "warm_start",
+   "kind": "base",
+   "priority": 146,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  }
+ ]
+}

@@ -7,8 +7,9 @@
    utterances the way the job will (whole or in segments), so a setting that crashes fails here,
    not overnight.
 3. The sweep's first job as a real job, cut to 2 epochs of 5 batches, written like any run
-   folder under artifacts/runs/smoke_<utc>/; the same for the first job that uses each option a
-   real job sets up for itself: global and speaker normalization (statistics), speed
+   folder under artifacts/runs/smoke_<utc>/ (to the microsecond since 2026-11-02); the same for the
+   first job that uses each option a real job sets up for itself: global and speaker
+   normalization (statistics), speed
    perturbation, mixup, each gender head, the contrastive loss, segment evaluation, each
    normalization layer, and each model.
 4. Times the base configuration at full size: training steps and one validation pass, to
@@ -57,6 +58,9 @@ COVERED = (
     ("model frames_transformer", lambda s: s["model"]["name"] == "frames_transformer"),
     ("model frames_lif", lambda s: s["model"]["name"] == "frames_lif"),
     ("model frames_rnn", lambda s: s["model"]["name"] == "frames_rnn"),
+    # added 2026-10-29: the refit on the training and validation sessions (E1)
+    ("refit on training and validation", lambda s: s["train"].get("refit", "none") != "none"),
+    ("warm start on the films", lambda s: s["train"].get("warm_start", "none") != "none"),
 )
 
 
@@ -228,7 +232,8 @@ def smoke(sweep_file, device) -> bool:
             print(f"  {n:4d} FAILED  {job['stage']}: {job['label']}")
             traceback.print_exc()
 
-    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    # to the microsecond (2026-11-02): two smoke tests may now run at once, and each keeps its own folder
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     # A short real job for the first job of the sweep, and for the first job using each option
     # that a real job sets up for itself (COVERED).
     short_jobs = [("first job", job0)]
@@ -239,6 +244,10 @@ def smoke(sweep_file, device) -> bool:
     for what, job in short_jobs:
         settings = copy.deepcopy(job["settings"])
         settings["train"].update({"epochs": 2, "warmup_epochs": 1, "max_batches_per_epoch": 5})
+        if settings["train"].get("refit", "none") != "none":
+            settings["train"]["refit_epochs"] = 2        # a refit trains its 2 epochs, all of them (2026-10-29)
+        if settings["train"].get("warm_start", "none") != "none":
+            settings["train"]["warm_start_epochs"] = 1   # one epoch of at most 5 batches per film fold (2026-10-29)
         short = validate_job(settings)
         spec = dict(job, sweep_id=f"smoke_{stamp}", stage="smoke", label=f"{what}, 2 epochs of 5 batches",
                     settings=plain(short), config_hash=config_hash(short), run_id=run_id(short, job["fold"], job["seed"]))

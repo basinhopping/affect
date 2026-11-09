@@ -1,0 +1,266 @@
+{
+ "sweep_id": "heads32w_lif_screen",
+ "description": "Week 32 (2026-11-02 to 2026-11-09; Dr. Luitel, 2026-11-02: spectrogram models only, only refits reported, speaker-specific against session-specific, scripted against improvised): my lif head tuned on Whisper large-v3's own layer-31 frames. The base is the configuration it ran with on Sunday night (heads31w_lif_so4, 49a7099faaca, chosen on WavLM Large's frames); 30 random configurations of the head and its training from its own search space (the space of heads27_lif, searched on WavLM), sampling seed 20261102. Seeds 1 to 3, four classes, session-specific. Validation only: the two configurations with the highest mean validation macro accuracy go to a confirmation on seeds 6 to 10. How the results are read is fixed in RULE_week32.txt (analyses/week32_prep_20261102) before any run. Priority 185 for every job, so that each head's screen runs whole, one head after another (order_sweeps.sh).",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "pretrained_frames",
+   "model": "whisper_large_v3",
+   "layer": 31,
+   "normalization": "none"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 2,
+   "time_mask_width": 10,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "frames_lif",
+   "time_pool": 4,
+   "input_dropout": 0.0,
+   "proj_dim": 512,
+   "activation": "relu",
+   "lif_hidden": [
+    256
+   ],
+   "recurrent": false,
+   "lif_norm": "batch",
+   "lif_dropout": 0.3,
+   "beta": 0.9,
+   "learn_beta": "neuron",
+   "threshold": 2.0,
+   "reset": "subtract",
+   "detach_reset": false,
+   "surrogate": "fast_sigmoid",
+   "surrogate_slope": 2.0,
+   "readout_beta": 0.9,
+   "rate_weight": 0.0,
+   "rate_target": 0.2,
+   "dropout": 0.4
+  },
+  "train": {
+   "epochs": 30,
+   "batch_size": 32,
+   "lr": 0.0005,
+   "weight_decay": 0.05,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 10.0,
+   "class_balance": "balanced_sampler",
+   "labels": "hard",
+   "label_smoothing": 0.0,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "none",
+   "contrastive": "none",
+   "contrastive_weight": 0.0,
+   "contrastive_temperature": null,
+   "contrastive_dim": null,
+   "external_test": "none",
+   "aux_va": "none",
+   "aux_va_weight": 0.0,
+   "aux_va_loss": "none",
+   "refit": "none",
+   "refit_epochs": null,
+   "warm_start": "none",
+   "warm_start_folds": null,
+   "warm_start_epochs": null,
+   "warm_start_lr": null
+  }
+ },
+ "stages": [
+  {
+   "name": "base",
+   "kind": "base",
+   "priority": 185,
+   "seeds": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "random",
+   "kind": "random",
+   "priority": 185,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "n_configs": 30,
+   "sampling_seed": 20261102,
+   "space": {
+    "model.time_pool": [
+     1,
+     2,
+     4
+    ],
+    "model.input_dropout": [
+     0.0,
+     0.1,
+     0.3
+    ],
+    "model.proj_dim": [
+     null,
+     128,
+     256,
+     512
+    ],
+    "model.lif_hidden": [
+     [
+      128
+     ],
+     [
+      256
+     ],
+     [
+      512
+     ],
+     [
+      256,
+      128
+     ],
+     [
+      256,
+      256
+     ],
+     [
+      512,
+      256
+     ]
+    ],
+    "model.recurrent": [
+     false,
+     true
+    ],
+    "model.lif_norm": [
+     "none",
+     "batch",
+     "layer"
+    ],
+    "model.lif_dropout": [
+     0.0,
+     0.1,
+     0.3
+    ],
+    "model.beta": [
+     0.8,
+     0.9,
+     0.95
+    ],
+    "model.learn_beta": [
+     "none",
+     "layer",
+     "neuron"
+    ],
+    "model.threshold": [
+     0.5,
+     1.0,
+     2.0
+    ],
+    "model.reset": [
+     "subtract",
+     "zero"
+    ],
+    "model.surrogate": [
+     "atan",
+     "fast_sigmoid",
+     "boxcar"
+    ],
+    "model.readout_beta": [
+     0.0,
+     0.5,
+     0.9
+    ],
+    "model.rate_weight": [
+     0.0,
+     0.5,
+     1.0
+    ],
+    "model.dropout": [
+     0.1,
+     0.2,
+     0.4
+    ],
+    "features.normalization": [
+     "global",
+     "utterance",
+     "none"
+    ],
+    "time_masks": [
+     {
+      "augment.time_masks": 0,
+      "augment.time_mask_width": 0
+     },
+     {
+      "augment.time_masks": 2,
+      "augment.time_mask_width": 10
+     },
+     {
+      "augment.time_masks": 4,
+      "augment.time_mask_width": 20
+     }
+    ],
+    "train.lr": [
+     0.0001,
+     0.0003,
+     0.0005,
+     0.001
+    ],
+    "train.weight_decay": [
+     0.001,
+     0.01,
+     0.05
+    ],
+    "train.batch_size": [
+     16,
+     32
+    ],
+    "train.crop_s": [
+     4.0,
+     6.0,
+     10.0
+    ],
+    "train.label_smoothing": [
+     0.0,
+     0.1
+    ],
+    "train.class_balance": [
+     "weighted_loss",
+     "balanced_sampler",
+     "none"
+    ],
+    "train.epochs": [
+     30,
+     40,
+     60
+    ]
+   }
+  }
+ ]
+}

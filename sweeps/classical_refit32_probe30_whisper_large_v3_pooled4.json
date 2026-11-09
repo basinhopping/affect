@@ -1,0 +1,53 @@
+{
+ "sweep_id": "classical_refit32_probe30_whisper_large_v3_pooled4",
+ "description": "Week 32 (2026-11-02 to 2026-11-09; Dr. Luitel, 2026-11-02: spectrogram models only, only refits reported, speaker-specific against session-specific, scripted against improvised): the SVM probe probe30_whisper_large_v3_pooled4 (0cdb105f55e6) with only protocol.refit changed to train_and_val: its layer is the record's, its C and gamma are chosen on validation as before, then the chosen SVM is fitted again on training plus validation before it predicts the test fold. Seed 1, the record's folds. How the results are read is fixed in RULE_week32.txt (analyses/week32_prep_20261102) before any run. Runs on CPUs.",
+ "folds": [
+  "test_G1",
+  "test_G2",
+  "test_G3",
+  "test_G4",
+  "test_G5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "utterance_5fold"
+  },
+  "functionals": {
+   "feature_set": "whisper_large_v3_l31",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train_and_val"
+  }
+ },
+ "stages": [
+  {
+   "name": "refit",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  }
+ ]
+}

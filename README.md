@@ -1,19 +1,32 @@
 # affect
 
-Speech emotion recognition on IEMOCAP for the F26 Affective Computing project. One canonical
-tree: `C:\Affective Computing\affect` on the PC. The GPU node holds a working copy at
-`~/affect`, replaced wholesale by each push. The plan, with every decision
-and its reason, is the project document "Affective Computing Plan and Data Map".
+Speech emotion recognition on IEMOCAP: a model hears one utterance and names its emotion. This is the code of my
+F26 Affective Computing project. Every model reads a spectrogram. Pretrained encoders stay frozen, and small heads I designed and tuned are trained on their frames.
 
-`HANDOFF.md` (the current state) and `VERIFICATION_LOG.md` (every data check) travel with the code to the
-node but stay out of the git repository, as do `data/` (IEMOCAP is licensed) and `artifacts/` (results).
-`notebooks/cnn_3block.ipynb` walks one experiment from its settings to its results.
+## Where things are
+
+| Page | What it holds |
+| --- | --- |
+| [docs/protocol.md](docs/protocol.md) | the data, folds, seeds, choosing, refit, scores and statistics every run follows, with the hashes that check them |
+| [docs/models.md](docs/models.md) | every reported model: its encoder and layer, its head's settings and its number of parameters |
+| [docs/recall.md](docs/recall.md) | how any model is rebuilt from its record and checked, and how the final models are saved |
+| [notebooks/](notebooks/) | notebooks that walk a model from its settings to its results |
+| the rest of this README | the layout of the code and every command |
+
+## The data
+
+IEMOCAP is licensed and is not in this repository. Request it from its owners at USC SAIL
+(https://sail.usc.edu/iemocap/), then build the project's copy with `python -m affect.cli ingest` and
+`python -m affect.cli assemble` (Commands below). No audio, label or transcript of IEMOCAP is in this repository,
+and no result folder either (`artifacts/` stays out of git).
 
 ## Layout
 
 ```
 affect/
   README.md  HANDOFF.md  VERIFICATION_LOG.md  findings.csv  requirements.in
+  docs/                protocol.md, models.md, recall.md (2026-11-09): the protocol, every reported model,
+                       and how any model is rebuilt from its record
   src/affect/          all code (the package)
     __init__.py        the node's CUDA MPS fix, applied on import
     settings.py        settings: frozen dataclasses, no defaults, checked both ways, hashed
@@ -40,14 +53,25 @@ affect/
     runs/spec.py       a job's five settings sections, validated and hashed
     classical/         openSMILE functionals with an SVM or a TPOT search (own environment):
                        settings.py, functionals.py, methods.py, runner.py, selftest.py; pretrained.py
-                       (2026-10-19): pretrained encoders' layers (WavLM, HuBERT and wav2vec 2.0, Base and Large) as
-                       feature sets <model>_l<k>, the mean of each layer's frame vectors per utterance; coldtest.py
+                       (2026-10-19): pretrained encoders' layers (WavLM, HuBERT and wav2vec 2.0, Base and Large; from
+                       2026-10-29 also Whisper large-v3's encoder and AST, which read spectrograms, from 2026-11-02
+                       w2v-BERT 2.0, which reads a mel filterbank, from 2026-11-05 Whisper Small's encoder, and
+                       from 2026-11-07 BUD-E-Whisper's and Whisper medium's) as
+                       feature sets <model>_l<k>, the mean of each
+                       layer's frame vectors per utterance, and every frame of a layer for the heads; coldtest.py
                        (2026-10-20): a record's SVMs fitted again, checked against its runs, scored on EmoFilm
     sweep/             design.py (expand a sweep file), enqueue.py, queue.py, worker.py,
-                       status.py, smoke.py
+                       status.py, smoke.py; week32.py (2026-11-02): week 32's automatic stages and the new encoders'
+                       sweeps (python -m affect.sweep.week32 advance, status, choose-layers, encoder-sweeps,
+                       check-frames), from validation files only; from 2026-11-05 also Whisper Small's chain, the
+                       films of the final records (heads and networks) and check-frames --dataset emofilm; from
+                       2026-11-07 BUD-E-Whisper's and Whisper medium's chains (letters b and m)
     analysis/          validation.py: a finished sweep's configurations against its baseline (analyze);
                        groups.py: results by speaker gender and kind, the gender-routed system;
-                       selection.py: select a configuration, then read its test results (test-report)
+                       selection.py: select a configuration, then read its test results (test-report);
+                       architectures.py (2026-10-26): each finalist's and screen base's exact architecture, built
+                       as training builds it and printed layer by layer with shapes and parameter counts (node:
+                       python -m affect.analysis.architectures, writes artifacts/architectures/)
   tests/               python -m unittest discover -s tests -t .
   scripts/             node: common.sh setup_env.sh check.sh unpack.sh pack.sh worker.sh affect.sh
                              smoke_enqueue.sh (smoke-test, then enqueue, sweeps in order) and
@@ -61,7 +85,19 @@ affect/
                              then their sweeps), 2026-10-20; night22.sh (the valence and arousal probes and
                              the EmoFilm fine-tuning on CPUs), 2026-10-21; swap_and_restart.sh (stop the workers,
                              install a code archive into ~/affect and check its tree digest, start them again, then
-                             smoke-test and enqueue sweeps; run from ~/affect_next), 2026-10-24
+                             smoke-test and enqueue sweeps; run from ~/affect_next), 2026-10-24; order_sweeps.sh
+                             (sweeps of equal priority run one after another in the order given, not job by job in
+                             turn, by renaming their pending files; run once they are enqueued), 2026-10-29;
+                             gpu_week.sh (a week of GPU runs that starts and stops by itself: workers on every free
+                             GPU in the nights, GPUs 2 and 3 on weekend days, stop files at 08:00 on weekdays, the
+                             automatic stages every 15 minutes; run from a copy outside ~/affect), advance_week.sh
+                             (one pass of week 32's automatic stages: python -m affect.sweep.week32 advance, then smoke
+                             tests and enqueue)
+                             and enc32.sh (AST's and w2v-BERT 2.0's frames, probes and head screens), 2026-11-02;
+                             enc32s.sh (EmoFilm's frames for the heads' films, then Whisper Small's probes, layers,
+                             frames and head screens), 2026-11-05; enc32x.sh (BUD-E-Whisper's and Whisper medium's
+                             probes, layers, frames, EmoFilm's frames and head screens, each step only with room above
+                             the workers' 10 GB stop), 2026-11-07
                        PC:   push.ps1 (-Data -Dataset emofilm sends EmoFilm's assembly, 2026-10-20) pull.ps1 (the
                              node's login is read from node.local.txt beside README.md, not in git)
   sweeps/              sweep files (JSON): base configuration, folds, stages
@@ -88,10 +124,17 @@ and the jobs still pending in the queue stay valid. Added so far: speed perturba
 (augment), the normalization layer and activation (model cnn), the gender head and evaluation
 segments (train, 2026-09-26), the training-set evaluation after each epoch (train.eval_train,
 2026-10-03), the supervised contrastive loss (train.contrastive, 2026-10-15), the external test
-(train.external_test, 2026-10-20), and the valence and activation head (train.aux_va, aux_va_weight and
+(train.external_test, 2026-10-20), the valence and activation head (train.aux_va, aux_va_weight and
 aux_va_loss, 2026-10-24: IEMOCAP's two ratings, standardized on the training sessions, as a second target with a
 CCC or MSE loss; the run folder then also holds predictions_va_val.csv and predictions_va_test.csv, and the metrics
-the concordance correlations).
+the concordance correlations), the refit (train.refit and refit_epochs, 2026-10-29: training and validation sessions
+together for a fixed number of epochs, the last weights tested; metrics_val.json then says its validation numbers are
+not held out) and the warm start on the films (train.warm_start, warm_start_folds, warm_start_epochs and
+warm_start_lr, 2026-10-29: after the cold external test, the chosen weights adapted on the other film folds' clips,
+each fold scored by a model that never saw its films, into metrics_emofilm_warm.json and predictions_emofilm_warm.csv).
+Since 2026-11-05 the external test and the warm start also run after a refit (its last weights) and with the heads on
+a pretrained encoder's frames, which then read EmoFilm's frames of the same encoder and layer
+(artifacts/features/emofilm/<model>_l<k>_frames, extract-frames --dataset emofilm).
 
 ## Commands
 
@@ -236,7 +279,10 @@ holds a sad utterance). The 2,896 extras queued since nights 3 and 4 (priority 2
 
 The queue is meant to hold more than a night's work, most important first: workers always take
 the highest-priority pending job, so a sweep enqueued later at a higher priority runs next without
-stopping anything, as long as it needs no new code. In the morning, either let the rest run or
+stopping anything, as long as it needs no new code. Jobs of equal priority take turns across their sweeps (job 0
+of each sweep, then job 1 of each), so a night that ends early leaves every one of those sweeps without its last jobs;
+`scripts/order_sweeps.sh <sweep id> ...` (2026-10-29) renames their pending files so that they run one sweep after
+another, in the order given, instead. In the morning, either let the rest run or
 `touch ~/affect/queue/STOP` (from night 7 the stop timer does this at 10 am): each worker finishes
 its current job and exits, and the pending jobs wait. Before pushing new code, stop every worker that way and wait until `tmux ls` lists no gpu
 session (a running worker keeps the code it started with). Then `rm ~/affect/queue/STOP` before
@@ -250,6 +296,23 @@ timer (`artifacts/analyses/night7_prep_20260930/lines/8_evening_start.txt`). The
 one-shot sleep, not a daemon: `tmux kill-session -t stopat10` cancels it. When the queue empties
 before 10 am the workers exit on their own; the morning check (line 6) then sets STOP and cancels the
 timer itself.
+
+A week that runs by itself (from 2026-11-02): `scripts/gpu_week.sh`, started once from a copy outside `~/affect` with
+the week's end as `WEEK_END` (epoch seconds), looks every 5 minutes and starts 3 workers on each GPU that may run and
+that no other user is on, whenever jobs are pending: weekday nights from 18:00 (or the hour in `NIGHT_START`; week 32
+runs from 21:00) to 08:00, weekend days GPUs 2 and 3,
+weekend nights every free GPU; at 08:00 on a weekday it writes each GPU's stop file, and at the end `queue/STOP`.
+Every 15 minutes it also starts `scripts/advance_week.sh` in its own tmux session (if
+`artifacts/advance_week32/ENABLED` exists): `python -m affect.sweep.week32 advance` writes each next stage's sweep file from
+validation files only (a screen's two best configurations confirmed on new seeds, then the record's refit, speaker
+folds, script splits and other setups; from 2026-11-05 also each final record's films, the refit with EmoFilm scored
+cold and then warm on its film folds), and each new file is smoke-tested and queued. The decisions and the files go
+to `artifacts/advance_week32/`; `affect_python -m affect.sweep.week32 status` shows every chain. Removing the ENABLED file pauses
+the stages; `tmux kill-session -t week32` ends the week's run early. A GPU is left alone while anything but our affect
+runs is on it, and can be reserved for other work with `queue/RESERVED_gpu<g>`: it gets no workers until an hour passes
+with nothing else on it (the file is then removed), or until the file is removed by hand. A GPU whose workers stopped
+after 5 failed jobs in a row, or for lack of disk, is held (`queue/HELD_gpu<g>`, with the reason) until the file is
+removed.
 
 `smoke` tries every configuration of the sweep for one training step, runs a short real job (also
 one for the first global- and the first speaker-normalized configuration, whose statistics a real
@@ -280,7 +343,19 @@ Pretrained encoders (from 2026-10-19; `src/affect/classical/pretrained.py`). Wav
 utterance one vector per hidden layer (the mean of the layer's frame vectors), and each layer is a feature set of the
 classical pipeline, `<model>_l0` to `<model>_l12` (Base) or `<model>_l24` (Large); `pretrained_night.sh
 --label-set four_merged` extracts the utterances of four_merged (which hold three_no_neutral's) instead of those
-of all seven classes. transformers and huggingface_hub live in their own folder, `~/venvs/affect_pretrained`
+of all seven classes. From 2026-10-29, `whisper_large_v3` (openai/whisper-large-v3's encoder, 33 hidden states of
+1280) and `ast_audioset` (MIT/ast-finetuned-audioset-10-10-0.4593, 13 of 768) read the log-mel spectrogram their own
+feature extractors make; an utterance longer than the model's window is cut into the fewest equal pieces that fit,
+and only the outputs that cover its samples are pooled (`affect.classical.pretrained.load_spectrogram_encoder`). From
+2026-11-02, `w2v_bert_2` (facebook/w2v-bert-2.0, a Conformer pretrained without labels, 25 hidden states of 1024)
+reads the 80-band mel filterbank its feature extractor makes, the whole utterance at once, and only the frames its
+attention mask marks real are kept. From 2026-11-05, `whisper_small` (openai/whisper-small's encoder, 13 hidden states
+of 768, 80 mel bands) is read exactly as large-v3 is, and from 2026-11-07 `bud_e_whisper` (laion/BUD-E-Whisper, Whisper
+Small fine-tuned to caption emotional speech, the same shape) and `whisper_medium` (openai/whisper-medium, 25 hidden
+states of 1024) too. `extract-frames` writes every frame of chosen layers for the heads
+(`affect.features.frames`): the waveform encoders' and Whisper's frames at 50 a second, w2v-BERT 2.0's at 50, and AST's
+at 10 (each time column's patch tokens averaged over the frequency rows); an utterance's frames average to its probe
+vector of the same layer. transformers and huggingface_hub live in their own folder, `~/venvs/affect_pretrained`
 (`pip install --target ... --no-deps` with the versions pip's dry run listed), so `~/venvs/affect` is not changed;
 `scripts/pretrained.sh` runs `download-pretrained` (into `~/cache/huggingface`) and `extract-pretrained` with it,
 and `scripts/pretrained_night.sh` extracts the models on one GPU, then runs the classical sweeps

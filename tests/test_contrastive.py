@@ -61,6 +61,9 @@ class TestReference(unittest.TestCase):
                                reference_loss(z * rng.uniform(0.1, 10, size=(8, 1)), labels, 0.1), places=10)
 
 
+WARM = ["warm_start", "warm_start_folds", "warm_start_epochs", "warm_start_lr"]   # added 2026-10-29
+
+
 class TestSettings(unittest.TestCase):
     def test_check_rules(self):
         from affect.runs.spec import validate_job
@@ -95,8 +98,9 @@ class TestSettings(unittest.TestCase):
 
         new = screen_settings()
         late = json.loads(json.dumps(new))
-        # the form of 2026-10-03 to 10-14 (external_test: 10-20; the valence and activation fields: 10-24)
-        for field in list(SUPCON) + ["external_test", "aux_va", "aux_va_weight", "aux_va_loss"]:
+        # the form of 2026-10-03 to 10-14 (external_test: 10-20; the valence and activation fields: 10-24; the refit
+        # fields: 10-29)
+        for field in list(SUPCON) + ["external_test", "aux_va", "aux_va_weight", "aux_va_loss", "refit", "refit_epochs"] + WARM:
             del late["train"][field]
         self.assertEqual(config_hash(validate_job(late)), config_hash(validate_job(new)))
         self.assertNotEqual(config_hash(validate_job(screen_settings(**SUPCON))), config_hash(validate_job(new)))

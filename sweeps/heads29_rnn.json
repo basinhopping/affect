@@ -1,0 +1,125 @@
+{
+ "sweep_id": "heads29_rnn",
+ "description": "Night 29 (2026-10-28; Dr. Luitel, 2026-10-21: try my own LIF/Transformer on top of the pretrained model and see what is best): the confirmation of the rnn head on WavLM Large's layer-20 frames. The two configurations of heads27_rnn with the highest mean validation UA over its 5 folds and seeds 1 to 3, each exactly as the screen ran it: rank 1, random 16: model.time_pool=1, model.input_dropout=0.0, model.proj_dim=128, model.rnn_hidden=256, model.rnn_layers=1, model.bidirectional=false, model.rnn_dropout=0.0, model.pooling=\"meanmax\", model.dropout=0.4, features.normalization=\"utterance\", augment.time_masks=4, augment.time_mask_width=20, train.batch_size=16, train.crop_s=4.0, train.class_balance=\"none\", train.epochs=30 (72e4af414eea, 0.7661), as the base, and rank 2, random 18: model.proj_dim=null, model.rnn=\"lstm\", model.rnn_hidden=256, model.rnn_layers=3, model.rnn_dropout=0.0, model.pooling=\"stats\", features.normalization=\"none\", augment.time_masks=4, augment.time_mask_width=20, train.lr=0.001, train.weight_decay=0.001, train.crop_s=10.0, train.label_smoothing=0.0, train.class_balance=\"none\", train.epochs=60 (2c150edf6d6f, 0.7601), as the variant; seeds 6 to 10, which no screen used. The record is the one with the higher mean validation UA over these seeds, chosen before any test file is read. How the results are read is fixed in RULE_night29.txt (analyses/night29_prep_20261028) before any run. Priority 150.",
+ "folds": [
+  "test_S1",
+  "test_S2",
+  "test_S3",
+  "test_S4",
+  "test_S5"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_session_out"
+  },
+  "features": {
+   "name": "pretrained_frames",
+   "model": "wavlm_large",
+   "layer": 20,
+   "normalization": "utterance"
+  },
+  "augment": {
+   "freq_masks": 0,
+   "freq_mask_width": 0,
+   "time_masks": 4,
+   "time_mask_width": 20,
+   "speed_factors": [
+    1.0
+   ],
+   "mixup_alpha": 0.0
+  },
+  "model": {
+   "name": "frames_rnn",
+   "time_pool": 1,
+   "input_dropout": 0.0,
+   "proj_dim": 128,
+   "activation": "relu",
+   "rnn": "gru",
+   "rnn_hidden": 256,
+   "rnn_layers": 1,
+   "bidirectional": false,
+   "rnn_dropout": 0.0,
+   "pooling": "meanmax",
+   "classifier_hidden": null,
+   "dropout": 0.4
+  },
+  "train": {
+   "epochs": 30,
+   "batch_size": 16,
+   "lr": 0.0005,
+   "weight_decay": 0.01,
+   "warmup_epochs": 2,
+   "schedule": "cosine",
+   "early_stopping_patience": 10,
+   "crop_s": 4.0,
+   "class_balance": "none",
+   "labels": "hard",
+   "label_smoothing": 0.1,
+   "precision": "bf16",
+   "eval_batch_size": 32,
+   "control": "none",
+   "max_batches_per_epoch": null,
+   "aux_gender": "none",
+   "aux_gender_weight": 0.0,
+   "eval_segment_s": null,
+   "eval_segment_hop_s": null,
+   "eval_train": "none",
+   "contrastive": "none",
+   "contrastive_weight": 0.0,
+   "contrastive_temperature": null,
+   "contrastive_dim": null,
+   "external_test": "none",
+   "aux_va": "none",
+   "aux_va_weight": 0.0,
+   "aux_va_loss": "none"
+  }
+ },
+ "stages": [
+  {
+   "name": "rank_1",
+   "kind": "base",
+   "priority": 150,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  {
+   "name": "rank_2",
+   "kind": "variants",
+   "priority": 150,
+   "seeds": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "variants": {
+    "rank 2: heads27_rnn random 18: model.proj_dim=null, model.rnn=\"lstm\", model.rnn_hidden=256, model.rnn_layers=3, model.rnn_dropout=0.0, model.pooling=\"stats\", features.normalization=\"none\", augment.time_masks=4, augment.time_mask_width=20, train.lr=0.001, train.weight_decay=0.001, train.crop_s=10.0, train.label_smoothing=0.0, train.class_balance=\"none\", train.epochs=60 (2c150edf6d6f)": {
+     "features.normalization": "none",
+     "model.time_pool": 2,
+     "model.input_dropout": 0.1,
+     "model.proj_dim": null,
+     "model.rnn": "lstm",
+     "model.rnn_layers": 3,
+     "model.bidirectional": true,
+     "model.pooling": "stats",
+     "model.dropout": 0.2,
+     "train.epochs": 60,
+     "train.batch_size": 32,
+     "train.lr": 0.001,
+     "train.weight_decay": 0.001,
+     "train.crop_s": 10.0,
+     "train.label_smoothing": 0.0
+    }
+   }
+  }
+ ]
+}

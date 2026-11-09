@@ -129,6 +129,81 @@ class TestStore(unittest.TestCase):
                 extract_frames("emofilm", {"label_set": "three_no_neutral", "subset": "all"}, "wavlm_large", (25,),
                                repo.snapshot, "cpu", lambda m: None, encoder=fake_encoder((25,)))
 
+    def test_whisper_store(self):
+        """Whisper large-v3's frames (added 2026-11-01): written and read as a waveform encoder's are, with its width
+        (1280) and frame rate (50). An encoder whose width is not the table's is refused before anything is written
+        (here Whisper's width for AST)."""
+        from affect.classical.pretrained import extract_frames
+        from affect.features import frames
+        from affect.features.frames import FramesSettings
+        from affect.registry import DATASETS
+        from affect.settings import validate
+
+        def whisper_encoder(layers):
+            def encode(samples):
+                n = max(1, -(-samples.shape[0] // 320))
+                return [(float(samples[0]) / 32768.0 + k + np.zeros((n, 1280))).astype(np.float16) for k in layers]
+            return encode, {"feature_extractor": {"sampling_rate": 16000}, "layers": 33, "hidden_size": 1280}
+
+        with TempRepo() as repo:
+            written = extract_frames("emofilm", {"label_set": "three_no_neutral", "subset": "all"}, "whisper_large_v3",
+                                     (31,), repo.snapshot, "cpu", lambda m: None, encoder=whisper_encoder((31,)))
+            self.assertEqual([Path(w).name for w in written], ["whisper_large_v3_l31_frames"])
+            record = json.loads((Path(written[0]) / "record.json").read_text())
+            self.assertEqual((record["model"], record["layer"], record["width"], record["frame_rate"]),
+                             ("whisper_large_v3", 31, 1280, 50))
+            entry = DATASETS.get("emofilm")
+            utts = entry.target().utterances(validate(entry.settings_class, {"label_set": "three_no_neutral",
+                                                                              "subset": "all"}, "data"))
+            settings = FramesSettings(model="whisper_large_v3", layer=31, normalization="none")
+            self.assertEqual(frames.width(settings), 1280)
+            got = frames.source("emofilm", settings, utts[:3])
+            self.assertEqual([a.shape[1] for a in got], [1280, 1280, 1280])
+            with self.assertRaises(ValueError):
+                extract_frames("emofilm", {"label_set": "three_no_neutral", "subset": "all"}, "ast_audioset", (3,),
+                               repo.snapshot, "cpu", lambda m: None, encoder=whisper_encoder((3,)))
+
+    def test_ast_and_w2v_bert_stores(self):
+        """AST's frames (added 2026-11-02): width 768, 10 frames a second, written and read like the others; an encoder
+        that says another frame rate is refused. w2v-BERT 2.0's: width 1024, 50 a second."""
+        from affect.classical.pretrained import extract_frames
+        from affect.features import frames
+        from affect.features.frames import FramesSettings
+        from affect.registry import DATASETS
+        from affect.settings import validate
+
+        def stand_in(layers, width, n_layers, per_second, said_rate=None):
+            def encode(samples):
+                n = max(1, int(samples.shape[0] * per_second // 16000))
+                return [(float(samples[0]) / 32768.0 + k + np.zeros((n, width))).astype(np.float16) for k in layers]
+            info = {"feature_extractor": {"sampling_rate": 16000}, "layers": n_layers, "hidden_size": width}
+            if said_rate is not None:
+                info["frame_rate"] = said_rate
+            return encode, info
+
+        data = {"label_set": "three_no_neutral", "subset": "all"}
+        with TempRepo() as repo:
+            with self.assertRaises(ValueError):
+                extract_frames("emofilm", data, "ast_audioset", (8,), repo.snapshot, "cpu", lambda m: None,
+                               encoder=stand_in((8,), 768, 13, 10, said_rate=50.0))
+            written = extract_frames("emofilm", data, "ast_audioset", (8,), repo.snapshot, "cpu", lambda m: None,
+                                     encoder=stand_in((8,), 768, 13, 10, said_rate=10.0))
+            record = json.loads((Path(written[0]) / "record.json").read_text())
+            self.assertEqual((record["model"], record["layer"], record["width"], record["frame_rate"]),
+                             ("ast_audioset", 8, 768, 10))
+            written = extract_frames("emofilm", data, "w2v_bert_2", (12,), repo.snapshot, "cpu", lambda m: None,
+                                     encoder=stand_in((12,), 1024, 25, 50))
+            record = json.loads((Path(written[0]) / "record.json").read_text())
+            self.assertEqual((record["model"], record["layer"], record["width"], record["frame_rate"]),
+                             ("w2v_bert_2", 12, 1024, 50))
+            entry = DATASETS.get("emofilm")
+            utts = entry.target().utterances(validate(entry.settings_class, data, "data"))
+            for model, layer, width in (("ast_audioset", 8, 768), ("w2v_bert_2", 12, 1024)):
+                settings = FramesSettings(model=model, layer=layer, normalization="none")
+                got = frames.source("emofilm", settings, utts[:3])
+                self.assertEqual([a.shape[1] for a in got], [width] * 3)
+                self.assertEqual(frames.frame_rate(settings), 10 if model == "ast_audioset" else 50)
+
     def test_a_store_that_disagrees_is_refused(self):
         from affect.classical.pretrained import extract_frames
         from affect.features import frames
@@ -160,12 +235,21 @@ class TestChecks(unittest.TestCase):
             job = validate_job(job_settings(model))
             check_job(job, 16000)
             self.assertEqual(input_width(job), WIDTH)
-        refused = [job_settings(POOL), job_settings(POOL), job_settings(POOL),
+        refused = [job_settings(POOL), job_settings(POOL, normalization="speaker"), job_settings(POOL),
                    job_settings({**POOL, "proj_dim": 0}), job_settings({**TRANSFORMER, "n_heads": 5}),
                    job_settings({**RNN, "rnn_layers": 1}), job_settings({**LIF, "lif_hidden": []})]
         refused[0]["augment"]["speed_factors"] = [0.9, 1.0, 1.1]
+        # the external test reads the corpus's frames since 2026-11-05, but never with speaker normalization
+        refused[1]["data"]["label_set"] = "three_no_neutral"
         refused[1]["train"]["external_test"] = "emofilm"
         refused[2]["model"] = json.loads((REPO / "sweeps" / "cnn_screen_1.json").read_text())["base"]["model"]
+        for normalization in ("utterance", "global", "none"):
+            films = job_settings(POOL, normalization=normalization, external_test="emofilm", warm_start="emofilm",
+                                 warm_start_folds=5, warm_start_epochs=10, warm_start_lr=5e-5)
+            self.assertEqual(films["data"]["label_set"], "four_merged")     # scored on EmoFilm's three classes
+            check_job(validate_job(films), 16000)
+            films["train"].update({"refit": "train_and_val", "refit_epochs": 3})
+            check_job(validate_job(films), 16000)
         for k, settings in enumerate(refused):
             with self.assertRaises(ValueError, msg=str(k)):
                 check_job(validate_job(settings), 16000)
@@ -227,6 +311,48 @@ class TestBatches(unittest.TestCase):
             self.assertEqual((len(source), rate, source[0].shape[1]), (len(utts), 50, WIDTH))
             logmel = validate_job(json.loads((REPO / "sweeps" / "cnn_screen_1.json").read_text())["base"])
             self.assertEqual(job_source(logmel, prepared), (["samples"], 16000))
+
+    def test_external_source(self):
+        """The external test of a frames job reads the corpus's frames of the job's encoder and layer at the frame rate
+        (added 2026-11-05); a log-mel job's corpus is the same object at the sample rate."""
+        from affect.features import frames
+        from affect.runs.spec import validate_job
+        from affect.train import data as train_data
+
+        with TempRepo() as repo:
+            from affect.classical.pretrained import extract_frames
+
+            extract_frames("emofilm", {"label_set": "three_no_neutral", "subset": "all"}, "wavlm_large", (20,),
+                           repo.snapshot, "cpu", lambda m: None, encoder=fake_encoder((20,)))
+            train_data._EXTERNAL.clear()
+            try:
+                ext = train_data.prepare_external("emofilm", "three_no_neutral")
+                job = validate_job(job_settings(POOL, external_test="emofilm"))
+                read, rate = train_data.external_source(job, ext)
+                self.assertEqual(rate, 50)
+                expected = frames.source("emofilm", job.features, ext.utterances)
+                self.assertEqual(len(read.audio), len(ext.utterances))
+                for a, b in zip(read.audio, expected):
+                    self.assertTrue(np.array_equal(a, b))
+                    self.assertEqual((a.dtype, a.shape[1]), (np.float16, WIDTH))
+                self.assertTrue(all(a.dtype == np.int16 for a in ext.audio), "the corpus itself keeps its samples")
+                self.assertTrue(np.array_equal(read.labels, ext.labels))
+                self.assertEqual((read.class_names, read.sample_rate, read.manifest_sha256, read.utterances),
+                                 (ext.class_names, ext.sample_rate, ext.manifest_sha256, ext.utterances))
+                from affect.runs.spec import plain
+                logmel_settings = plain(validate_job(json.loads((REPO / "sweeps" / "cnn_screen_1.json").read_text())
+                                                     ["base"]))
+                logmel_settings["train"]["external_test"] = "emofilm"
+                logmel_settings["features"]["normalization"] = "utterance"
+                same, rate = train_data.external_source(validate_job(logmel_settings), ext)
+                self.assertIs(same, ext)
+                self.assertEqual(rate, 16000)
+                other_layer_settings = job_settings(POOL, external_test="emofilm")
+                other_layer_settings["features"]["layer"] = 12
+                with self.assertRaises(FileNotFoundError):        # no frames of layer 12 were extracted
+                    train_data.external_source(validate_job(other_layer_settings), ext)
+            finally:
+                train_data._EXTERNAL.clear()
 
 
 @needs_module("torch")
@@ -301,6 +427,65 @@ class TestHeads(unittest.TestCase):
             segments = predict(net, feats, Normalizer("utterance"), source, np.arange(4), 4, torch.device("cpu"),
                                "fp32", (20, 10))
             self.assertTrue(np.allclose(segments.probs.sum(axis=1), 1.0), model["name"])
+
+    def test_films_on_frames(self):
+        """The external test and the warm start of a head on the stand-in EmoFilm's frames (added 2026-11-05): every
+        clip scored once, cold and adapted, each adapted clip in its film's fold; the head's weights come back
+        unchanged; a second warm start gives the same file byte for byte; the crops count frames (crop_s at 50 a
+        second); adapted scores differ from the cold ones."""
+        import csv
+        import io
+
+        import torch
+
+        from affect.classical.finetune import film_folds
+        from affect.features.frames import FrameFeatures
+        from affect.runs.spec import validate_job
+        from affect.train import data as train_data
+        from affect.train.loop import Normalizer, external_files, warm_start_files
+
+        model_classes = ("neu", "hap+exc", "ang", "sad")
+        with TempRepo() as repo:
+            from affect.classical.pretrained import extract_frames
+
+            extract_frames("emofilm", {"label_set": "three_no_neutral", "subset": "all"}, "wavlm_large", (20,),
+                           repo.snapshot, "cpu", lambda m: None, encoder=fake_encoder((20,)))
+            train_data._EXTERNAL.clear()
+            try:
+                ext = train_data.prepare_external("emofilm", "three_no_neutral")
+                settings = job_settings(POOL, normalization="none", external_test="emofilm",
+                                        warm_start="emofilm", warm_start_folds=3, warm_start_epochs=2,
+                                        warm_start_lr=1e-3, batch_size=4, crop_s=0.06, eval_batch_size=4,
+                                        precision="fp32", refit="train_and_val", refit_epochs=2)
+                settings["augment"].update({"time_masks": 0, "time_mask_width": 0, "mixup_alpha": 0.0})
+                job = validate_job(settings)
+                read, rate = train_data.external_source(job, ext)
+                self.assertEqual(rate, 50)
+                feats = FrameFeatures(job.features, 16000, torch.device("cpu"))
+                net = self.build(POOL)
+                before = {k: v.detach().clone() for k, v in net.state_dict().items()}
+                cold, cold_text, _ = external_files(read, net, feats, Normalizer("none"), job.train, None,
+                                                    torch.device("cpu"), model_classes)
+                metrics, text, _ = warm_start_files(read, net, job, feats, Normalizer("none"), None,
+                                                    torch.device("cpu"), 7, model_classes, lambda m: None, rate=rate)
+                for k, v in net.state_dict().items():
+                    self.assertTrue(torch.equal(v, before[k]), k)
+                again = warm_start_files(read, net, job, feats, Normalizer("none"), None, torch.device("cpu"), 7,
+                                         model_classes, lambda m: None, rate=rate)[1]
+                self.assertEqual(again, text)
+            finally:
+                train_data._EXTERNAL.clear()
+        rows = list(csv.DictReader(io.StringIO(text)))
+        self.assertEqual([r["utt_id"] for r in rows], [u.utt_id for u in ext.utterances])
+        expected = film_folds([u.extra["film"] for u in ext.utterances], 3)
+        self.assertTrue(all(int(r["film_fold"]) == expected[r["film"]] for r in rows))
+        self.assertEqual((metrics["n"], cold["n"]), (36, 36))
+        self.assertEqual(metrics["warm_start"]["crop_s"], 0.06)
+        self.assertIn("strict", metrics)
+        cold_rows = list(csv.DictReader(io.StringIO(cold_text)))
+        probs = np.array([[float(r[f"prob_{c}"]) for c in model_classes] for r in rows])
+        cold_probs = np.array([[float(r[f"prob_{c}"]) for c in model_classes] for r in cold_rows])
+        self.assertGreater(np.abs(cold_probs - probs).max(), 1e-4, "the adapted heads score like the cold one")
 
 
 if __name__ == "__main__":
