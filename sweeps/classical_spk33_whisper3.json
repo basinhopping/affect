@@ -1,0 +1,58 @@
+{
+ "sweep_id": "classical_spk33_whisper3",
+ "description": "Week 33 (2026-11-09 to 2026-11-16; Dr. Luitel, 2026-11-09: speaker-specific folds are the main protocol, the validation speaker chooses, every model kept until this week's results are in): the SVM probe probe30_whisper_large_v3_so4 (4c19be6604d3), its layer fixed, as classical_spk32_whisper ran it, with three classes (no neutral), in speaker-specific folds (one speaker tests, the other speaker of the same session validates, the other eight speakers train), refitted on training plus validation; C and gamma are chosen on each fold's validation speaker as the probe chooses them. Only data.label_set differs from classical_spk32_whisper. Seed 1. How the results are read is fixed in RULE_week33.txt (analyses/week33_prep_20261109) before any run. Runs on CPUs.",
+ "folds": [
+  "test_Ses01_F",
+  "test_Ses01_M",
+  "test_Ses02_F",
+  "test_Ses02_M",
+  "test_Ses03_F",
+  "test_Ses03_M",
+  "test_Ses04_F",
+  "test_Ses04_M",
+  "test_Ses05_F",
+  "test_Ses05_M"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "three_no_neutral",
+   "subset": "all",
+   "split": "leave_one_speaker_out"
+  },
+  "functionals": {
+   "feature_set": "whisper_large_v3_l31",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train_and_val"
+  }
+ },
+ "stages": [
+  {
+   "name": "refit",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  }
+ ]
+}

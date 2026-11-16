@@ -6,6 +6,15 @@
 #     weekday days     Monday to Friday, 08:00 to NIGHT_START: no GPU
 #     weekend          Saturday and Sunday, 08:00 to 22:00: GPUs 2 and 3 only (DAY_GPUS); 22:00 to 08:00: every free
 #                      GPU. Friday evening and Monday morning are nights
+#     ALL_FROM         (added 2026-11-11, Harrison: two GPUs in the evening, the other two only late at night)
+#                      when set, an hour from 0 to NIGHT_END - 1: a night that starts on a weekday evening (Monday to
+#                      Friday, from NIGHT_START) gives DAY_GPUS only until ALL_FROM:00 the next morning, then
+#                      every free GPU until NIGHT_END:00; unset, every night is as above
+#     NIGHT_END        (added 2026-11-13, Harrison: nights from 20:00 to 10:00) the hour every night ends, weekday
+#                      or weekend, 1 to 12; unset, 08:00 as above
+#     WEEKEND          (added 2026-11-13, Harrison: weekends nights only) "days" (unset): weekends as above;
+#                      "nights": Saturday and Sunday have the weekday hours, every free GPU from NIGHT_START to
+#                      NIGHT_END:00 and no GPU by day
 # Every LOOP_S seconds (300) it looks again. A GPU gets its workers (tmux session gpu<g>, scripts/worker.sh) when it may
 # run now and still at the next look, has no workers, is not reserved, jobs are pending, and nothing else is on it
 # (gpu_schedule.sh's rule, made stricter on 2026-11-02: a process that is not one of our affect runs, other than an MPS
@@ -16,7 +25,7 @@
 # project): it gets no workers (ours on it get its stop file), and it is released by itself (the file removed, logged)
 # once a full hour (RESERVE_QUIET_S) has passed in which no look saw anything on it but our runs; removing the file
 # releases it at once. A GPU that may not run at the next look gets its stop file (queue/STOP_gpu<g>) already now: its workers finish
-# the job they are on, then exit, so no job starts after 08:00 on a weekday. Nothing starts while queue/STOP exists.
+# the job they are on, then exit, so no job starts after NIGHT_END:00 on a weekday. Nothing starts while queue/STOP exists.
 # A GPU whose last workers stopped because 5 jobs failed in a row, or for lack of disk (their logs say so), is held:
 # queue/HELD_gpu<g> is written with the reason and the GPU gets no workers until a person removes that file (worker.sh
 # stops after 5 failures so that a broken setup cannot empty the queue into queue/failed; restarting it every 5 minutes
@@ -43,7 +52,15 @@ TMUX_CMD="${TMUX_CMD:-tmux}"
 NVIDIA_SMI_CMD="${NVIDIA_SMI_CMD:-nvidia-smi}"
 WEEK_END="${WEEK_END:?WEEK_END (epoch seconds) must be set}"
 NIGHT_START="${NIGHT_START:-18}"
+NIGHT_END="${NIGHT_END:-8}"
+WEEKEND="${WEEKEND:-days}"
 DAY_GPUS="${DAY_GPUS:-2 3}"
+ALL_FROM="${ALL_FROM:-}"
+case "$NIGHT_START" in 1[3-9]|2[0-3]) ;; *) echo "NIGHT_START must be an hour from 13 to 23"; exit 1 ;; esac
+case "$NIGHT_END" in [1-9]|1[0-2]) ;; *) echo "NIGHT_END must be an hour from 1 to 12"; exit 1 ;; esac
+case "$WEEKEND" in days|nights) ;; *) echo "WEEKEND must be days or nights"; exit 1 ;; esac
+case "$ALL_FROM" in "") ;; [0-9]|1[01]) [ "$ALL_FROM" -lt "$NIGHT_END" ] ;; *) false ;; esac ||
+    { echo "ALL_FROM must be an hour from 0 to $((NIGHT_END - 1)), or unset"; exit 1; }
 ALL_GPUS="0 1 2 3"
 LOOP_S="${LOOP_S:-300}"
 HOOK_EVERY="${HOOK_EVERY:-3}"
@@ -89,10 +106,17 @@ allowed() {   # the GPUs that may run at time $1, and the window's name
     local wd hr
     wd=$(TZ=America/Los_Angeles date -d "@$1" +%u)          # 1 Monday ... 7 Sunday
     hr=$((10#$(TZ=America/Los_Angeles date -d "@$1" +%H)))
+    if [ -n "$ALL_FROM" ] && { { [ "$wd" -le 5 ] && [ "$hr" -ge "$NIGHT_START" ]; } ||
+                               { [ "$wd" -ge 2 ] && [ "$wd" -le 6 ] && [ "$hr" -lt "$ALL_FROM" ]; }; }; then
+        echo "early night|$DAY_GPUS"; return               # a weekday evening's night, until ALL_FROM:00
+    fi
+    if [ "$hr" -lt "$NIGHT_END" ]; then echo "night|$ALL_GPUS"; return; fi      # every morning, until NIGHT_END:00
     if [ "$wd" -le 5 ]; then
-        if [ "$hr" -lt 8 ] || [ "$hr" -ge "$NIGHT_START" ]; then echo "night|$ALL_GPUS"; else echo "weekday day|"; fi
+        if [ "$hr" -ge "$NIGHT_START" ]; then echo "night|$ALL_GPUS"; else echo "weekday day|"; fi
+    elif [ "$WEEKEND" = nights ]; then
+        if [ "$hr" -ge "$NIGHT_START" ]; then echo "night|$ALL_GPUS"; else echo "weekend day|"; fi
     else
-        if [ "$hr" -lt 8 ] || [ "$hr" -ge 22 ]; then echo "night|$ALL_GPUS"; else echo "weekend day|$DAY_GPUS"; fi
+        if [ "$hr" -ge 22 ]; then echo "night|$ALL_GPUS"; else echo "weekend day|$DAY_GPUS"; fi
     fi
 }
 
@@ -120,7 +144,7 @@ in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 
 for g in $ALL_GPUS; do last_start[$g]=0; last_other[$g]=0; done
 first=1
-log "gpu_week started: ends $(TZ=America/Los_Angeles date -d "@$WEEK_END" '+%a %Y-%m-%d %H:%M %Z'); weekday nights from $NIGHT_START:00, weekend days GPUs $DAY_GPUS, a look every $LOOP_S s"
+log "gpu_week started: ends $(TZ=America/Los_Angeles date -d "@$WEEK_END" '+%a %Y-%m-%d %H:%M %Z'); weekday nights from $NIGHT_START:00$([ -n "$ALL_FROM" ] && echo " (GPUs $DAY_GPUS only until $ALL_FROM:00)") to $NIGHT_END:00, $([ "$WEEKEND" = nights ] && echo "weekends nights only (from $NIGHT_START:00)" || echo "weekend days GPUs $DAY_GPUS"), a look every $LOOP_S s"
 while :; do
     if [ "${#TIMES[@]}" -gt 0 ]; then
         [ "$loop" -lt "${#TIMES[@]}" ] || { log "test times used up"; exit 0; }

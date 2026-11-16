@@ -6,9 +6,10 @@ Adding a dataset, feature or model means adding its module and one import line h
 
 def load_all() -> None:
     from affect.data import iemocap  # noqa: F401  dataset "iemocap"
-    from affect.data import emofilm  # noqa: F401  dataset "emofilm" (a test corpus only; 2026-10-20)
+    from affect.data import emofilm  # noqa: F401  dataset "emofilm" (a test corpus; also trained on since 2026-11-10)
     from affect.features import logmel  # noqa: F401  feature "logmel"
     from affect.features import frames as frame_features  # noqa: F401  feature "pretrained_frames" (2026-10-26)
+    from affect.features import whisper_logmel  # noqa: F401  feature "whisper_logmel" (2026-11-10)
     from affect.models import cnn  # noqa: F401  model "cnn"
     from affect.models import cnn_transformer  # noqa: F401  model "cnn_transformer"
     from affect.models import cnn_lif  # noqa: F401  model "cnn_lif" (CNN + LIF, hybrid)

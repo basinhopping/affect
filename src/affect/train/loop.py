@@ -26,6 +26,10 @@ before; and the external test of a model with more classes than the corpus (four
 Added 2026-11-05 (the films of the final records): the external test and the warm start of a frames job read the
 corpus's frames of the job's encoder and layer (affect.train.data.external_source), and a refit may have them too (its
 last weights are scored and adapted). A log-mel job reads the corpus's samples exactly as before.
+
+Added 2026-11-10 (week 33, the films the other way): a job trained on EmoFilm's film folds may score IEMOCAP's three
+classes (external_test iemocap, iemocap_external_files) and adapt to IEMOCAP speaker by speaker (warm_start iemocap,
+iemocap_warm_files). Jobs with external_test emofilm, or none, run exactly as before.
 """
 import csv
 import dataclasses
@@ -67,7 +71,9 @@ class Normalizer:
     """utterance: per band, mean 0 and SD 1 over the utterance's real frames.
     global: per band, with training-set statistics. speaker: per band, with the statistics of the
     row's speaker (mean and std are [speakers, bands], speaker_of maps a row to its speaker).
-    none: unchanged. After normalising, padded frames are set to 0.
+    none: unchanged. frame (added 2026-11-15, RULE_week33_addendum10.txt): each frame to mean 0 and SD 1 over its own
+    bands or dimensions, a layer normalization without a learned scale or shift; no statistics. After normalising,
+    padded frames are set to 0.
     Called with the batch, its real frame counts, and the batch's rows (used by speaker only)."""
 
     def __init__(self, mode: str, mean=None, std=None, speaker_of=None):
@@ -89,6 +95,10 @@ class Normalizer:
             x = (x - mean) / torch.sqrt(var + 1e-5)
         elif self.mode == "global":
             x = (x - self.mean[None, :, None]) / self.std[None, :, None]
+        elif self.mode == "frame":
+            mean = x.mean(dim=1, keepdim=True)
+            var = ((x - mean) ** 2).mean(dim=1, keepdim=True)
+            x = (x - mean) / torch.sqrt(var + 1e-5)
         elif self.mode == "speaker":
             if rows is None or len(rows) != x.shape[0]:
                 raise ValueError("speaker normalization needs the rows of the batch")
@@ -582,6 +592,26 @@ def _external_files_more_classes(external, model, features, normalizer, ts, segm
     return metrics, buffer.getvalue(), pred.seconds
 
 
+def warm_start_film_folds(utterances: list, n_folds: int, films: str) -> tuple:
+    """The warm start's film folds (a function since 2026-11-15, RULE_week33_addendum10.txt): (each clip's fold as an
+    array, film -> fold), affect.classical.finetune.film_folds over the clips' film IDs (films "ids", the loop before
+    2026-11-15) or over their whole films (films "whole": each film ID that spells a film another way counted as that
+    film, affect.data.emofilm.whole_film, once FILMS.csv is checked against the reviewed titles)."""
+    from affect.classical.finetune import film_folds
+
+    keys = [u.extra["film"] for u in utterances]
+    if films == "whole":
+        from affect import paths
+        from affect.data.emofilm import check_whole_films, read_films, whole_film
+
+        check_whole_films(read_films(paths.assembled_dir("emofilm")))
+        keys = [whole_film(f) for f in keys]
+    elif films != "ids":
+        raise ValueError(f"warm_start_films must be ids or whole, not {films!r}")
+    fold_of = film_folds(keys, n_folds)
+    return np.array([fold_of[f] for f in keys], dtype=np.int64), fold_of
+
+
 def warm_start_files(external, model, job, features, normalizer, segment, device, seed: int, model_classes,
                      log, rate=None) -> tuple:
     """F2 (train.warm_start, added 2026-10-29): the chosen epoch's model adapted to a test corpus film fold by film
@@ -590,10 +620,9 @@ def warm_start_files(external, model, job, features, normalizer, segment, device
     gets the most probable of the corpus's classes (the model's other outputs left out, the rest renormalised), with
     the strict scoring beside when the model has more classes. rate (added 2026-11-05): what crop_s counts per second
     in external.audio, the encoder's frame rate when it holds a frames job's frames (affect.train.data.
-    external_source); None, the corpus's sample rate, as before."""
+    external_source); None, the corpus's sample rate, as before. The film folds: warm_start_film_folds (since
+    2026-11-15, whole films with train.warm_start emofilm_whole)."""
     import torch
-
-    from affect.classical.finetune import film_folds
 
     ts = job.train
     model_classes = tuple(model_classes)
@@ -601,9 +630,8 @@ def warm_start_files(external, model, job, features, normalizer, segment, device
     if missing:
         raise ValueError(f"{external.dataset}: classes {missing} are not among the model's {list(model_classes)}")
     columns = np.array([model_classes.index(c) for c in external.class_names], dtype=np.int64)
-    films = [u.extra["film"] for u in external.utterances]
-    fold_of = film_folds(films, ts.warm_start_folds)
-    folds = np.array([fold_of[f] for f in films], dtype=np.int64)
+    films = "whole" if ts.warm_start == "emofilm_whole" else "ids"
+    folds, fold_of = warm_start_film_folds(external.utterances, ts.warm_start_folds, films)
     crop_len = int(round(ts.crop_s * (external.sample_rate if rate is None else rate)))
     start_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
     probs = np.full((len(external.utterances), len(model_classes)), np.nan, dtype=np.float64)
@@ -672,7 +700,8 @@ def warm_start_files(external, model, job, features, normalizer, segment, device
                                    "films_per_fold": [len({f for f, k in fold_of.items() if k == j})
                                                       for j in range(ts.warm_start_folds)],
                                    "clips_per_fold": np.bincount(folds, minlength=ts.warm_start_folds).tolist(),
-                                   "curves": curves},
+                                   "curves": curves,
+                                   **({"films": "whole"} if films == "whole" else {})},
                     "scoring": ("each clip scored once, by the model adapted on the other film folds' clips; the most "
                                 "probable of the corpus's classes, the model's other classes left out and the rest "
                                 "renormalised"),
@@ -687,6 +716,135 @@ def warm_start_files(external, model, job, features, normalizer, segment, device
                         + [f"{p:.6f}" for p in probs[k]])
     log(f"  {external.dataset} warm start: {ts.warm_start_folds} film folds, {ts.warm_start_epochs} epochs each at lr "
         f"{ts.warm_start_lr}, every clip scored by a model that never saw its film (metrics_{external.dataset}_warm.json)")
+    return metrics, buffer.getvalue(), seconds
+
+
+def iemocap_groups(utterances: list) -> dict:
+    """The groups an IEMOCAP score is broken down by (added 2026-11-10): kind (impro, script), speaker and gender."""
+    return {"kind": np.array([u.kind for u in utterances]), "speaker": np.array([u.speaker for u in utterances]),
+            "gender": np.array([u.extra["speaker_gender"] for u in utterances])}
+
+
+def iemocap_external_files(external, model, features, normalizer, ts, segment, device) -> tuple:
+    """A job trained on EmoFilm scored on IEMOCAP's utterances of its three classes (train.external_test iemocap, added
+    2026-11-10), predicted like the test set (whole utterances or the job's segments) with the model that predicted it
+    (the chosen epoch's, or a refit's last): (metrics, predictions CSV text, seconds). The job's classes are IEMOCAP's
+    three_no_neutral classes in IEMOCAP's order (runs.spec.check_job), so each utterance gets the most probable of
+    them. The metrics also hold the scores by kind, speaker and gender."""
+    rows = np.arange(len(external.utterances), dtype=np.int64)
+    pred = predict(model, features, normalizer, external.audio, rows, ts.eval_batch_size, device, ts.precision,
+                   segment)
+    y_true, y_pred = external.labels, pred.probs.argmax(axis=1)
+    metrics = report(y_true, y_pred, external.class_names)
+    for field, groups in iemocap_groups(external.utterances).items():
+        metrics[f"by_{field}"] = report_by_group(y_true, y_pred, groups, external.class_names)
+    metrics["mean_nll"] = float(-np.mean(np.log(np.clip(pred.probs[rows, y_true], 1e-12, None))))
+    metrics.update({"dataset": external.dataset, "manifest_sha256": external.manifest_sha256,
+                    "seconds": round(pred.seconds, 3)})
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(["utt_id", "speaker", "kind", "gender", "label", "pred"] + [f"prob_{c}" for c in external.class_names])
+    for k, u in enumerate(external.utterances):
+        writer.writerow([u.utt_id, u.speaker, u.kind, u.extra["speaker_gender"], u.label,
+                         external.class_names[int(pred.probs[k].argmax())]] + [f"{p:.6f}" for p in pred.probs[k]])
+    return metrics, buffer.getvalue(), pred.seconds
+
+
+def iemocap_warm_files(external, model, job, features, normalizer, segment, device, seed: int, log,
+                       rate=None) -> tuple:
+    """warm_start iemocap (added 2026-11-10): the model of a job trained on EmoFilm, after its cold scores on IEMOCAP
+    (iemocap_external_files), adapted to IEMOCAP speaker by speaker, as warm_start_files adapts an IEMOCAP model to the
+    films film fold by film fold: for each of the ten speakers in turn (in sorted order), the model's weights train for
+    warm_start_epochs epochs at the constant rate warm_start_lr on the other nine speakers' utterances (the job's crop
+    length, SpecAugment, mixup and batch size, AdamW with the job's weight decay; hard targets; no label smoothing,
+    class weights, balanced sampling or speed perturbation; the utterances in a new random order each epoch, from the
+    job's seed and the speaker's position), then score that speaker's utterances, and the weights go back. Every
+    utterance is scored once, by a model that never heard its speaker. Returns (metrics, predictions CSV text, seconds);
+    the model's weights are those it came with when this returns. rate: what crop_s counts per second in
+    external.audio (the encoder's frame rate for a frames job; None, the sample rate)."""
+    import torch
+
+    ts = job.train
+    speakers = sorted({u.speaker for u in external.utterances})
+    if len(speakers) != ts.warm_start_folds:
+        raise ValueError(f"warm start on {external.dataset}: {len(speakers)} speakers, warm_start_folds is "
+                         f"{ts.warm_start_folds}")
+    speaker_of = np.array([speakers.index(u.speaker) for u in external.utterances], dtype=np.int64)
+    n_classes = len(external.class_names)
+    crop_len = int(round(ts.crop_s * (external.sample_rate if rate is None else rate)))
+    start_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+    probs = np.full((len(external.utterances), n_classes), np.nan, dtype=np.float64)
+    curves, start = [], time.perf_counter()
+    for j, speaker in enumerate(speakers):
+        held = np.flatnonzero(speaker_of == j).astype(np.int64)
+        train = np.flatnonzero(speaker_of != j).astype(np.int64)
+        steps = train.shape[0] // ts.batch_size
+        if ts.max_batches_per_epoch is not None:
+            steps = min(steps, ts.max_batches_per_epoch)
+        if held.shape[0] == 0 or steps < 1:
+            raise ValueError(f"speaker {speaker}: {held.shape[0]} utterances held out, {train.shape[0]} to train on in "
+                             f"batches of {ts.batch_size}")
+        model.load_state_dict(start_state)
+        torch.manual_seed(int(seed) * 1000 + 500 + j)         # dropout: its own draws, after every EmoFilm number
+        rng = np.random.default_rng([int(seed), 20261110, j])
+        augment_rng = np.random.default_rng([int(seed), 20261110, j, 1])
+        generator = torch.Generator().manual_seed(int(seed) * 1000 + 600 + j)
+        targets = np.eye(n_classes, dtype=np.float32)[external.labels[train]]
+        optimizer = torch.optim.AdamW(model.parameters(), lr=ts.warm_start_lr, weight_decay=ts.weight_decay)
+        step = Step(job, model, None, features, normalizer, None, device)
+        for epoch in range(1, ts.warm_start_epochs + 1):
+            model.train()
+            order = rng.permutation(train.shape[0])
+            loss_sum = torch.zeros((), device=device)
+            for b in range(steps):
+                picked = order[b * ts.batch_size:(b + 1) * ts.batch_size]
+                rows = train[picked]
+                waves, lengths = training_waves(external.audio, rows, crop_len, (1.0,), rng, augment_rng)
+                loss, _, _, _ = step.loss(waves, lengths, rows, targets[picked], None, generator, augment_rng)
+                optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                optimizer.step()
+                loss_sum = loss_sum + loss.detach()
+            mean_loss = float(loss_sum.item()) / steps
+            if not math.isfinite(mean_loss):
+                raise FloatingPointError(f"warm start: training loss {mean_loss} without speaker {speaker}, epoch "
+                                         f"{epoch}")
+            curves.append({"speaker": speaker, "epoch": epoch, "train_loss": mean_loss})
+        pred = predict(model, features, normalizer, external.audio, held, ts.eval_batch_size, device, ts.precision,
+                       segment)
+        probs[held] = pred.probs
+    model.load_state_dict(start_state)
+    seconds = time.perf_counter() - start
+    if not np.isfinite(probs).all():
+        raise RuntimeError("warm start: an utterance was not scored")
+    y_true, y_pred = external.labels, probs.argmax(axis=1)
+    metrics = report(y_true, y_pred, external.class_names)
+    for field, groups in iemocap_groups(external.utterances).items():
+        metrics[f"by_{field}"] = report_by_group(y_true, y_pred, groups, external.class_names)
+    rows = np.arange(len(external.utterances))
+    metrics["mean_nll"] = float(-np.mean(np.log(np.clip(probs[rows, y_true], 1e-12, None))))
+    metrics.update({"dataset": external.dataset, "manifest_sha256": external.manifest_sha256,
+                    "warm_start": {"held_out": "each of IEMOCAP's speakers in turn", "speakers": speakers,
+                                   "epochs": int(ts.warm_start_epochs), "lr": float(ts.warm_start_lr),
+                                   "weight_decay": float(ts.weight_decay), "batch_size": int(ts.batch_size),
+                                   "crop_s": float(ts.crop_s),
+                                   "as_the_job": ["crop length", "SpecAugment", "mixup", "batch size", "weight decay"],
+                                   "not_applied": ["label smoothing", "class weights", "balanced sampling",
+                                                   "speed perturbation", "the learning-rate schedule"],
+                                   "utterances_per_speaker": np.bincount(speaker_of, minlength=len(speakers)).tolist(),
+                                   "curves": curves},
+                    "scoring": ("each utterance scored once, by the model adapted on the other nine speakers' "
+                                "utterances; the most probable of the three classes"),
+                    "seconds": round(seconds, 3)})
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(["utt_id", "speaker", "kind", "gender", "label", "pred"] + [f"prob_{c}" for c in external.class_names])
+    for k, u in enumerate(external.utterances):
+        writer.writerow([u.utt_id, u.speaker, u.kind, u.extra["speaker_gender"], u.label,
+                         external.class_names[int(y_pred[k])]] + [f"{p:.6f}" for p in probs[k]])
+    log(f"  {external.dataset} warm start: each of {len(speakers)} speakers held out in turn, {ts.warm_start_epochs} "
+        f"epochs each at lr {ts.warm_start_lr} on the others, every utterance scored by a model that never heard its "
+        f"speaker (metrics_{external.dataset}_warm.json)")
     return metrics, buffer.getvalue(), seconds
 
 
@@ -957,7 +1115,13 @@ def train_job(spec: dict, device, log) -> dict:
         # what the features read of the corpus (added 2026-11-05): its samples for a log-mel job, exactly as before;
         # the corpus's frames of the job's encoder and layer for a frames job, counted at the encoder's frame rate
         ext, ext_rate = external_source(job, ext)
-        external = (ext, *external_files(ext, model, features, normalizer, ts, segment, device, more))
+        if ext.dataset == "iemocap":
+            # a job trained on EmoFilm (added 2026-11-10): the same three classes, so no other class is left out
+            if more is not None:
+                raise ValueError(f"iemocap: classes {ext.class_names}, the job's {prepared.class_names}")
+            external = (ext, *iemocap_external_files(ext, model, features, normalizer, ts, segment, device))
+        else:
+            external = (ext, *external_files(ext, model, features, normalizer, ts, segment, device, more))
         # the log is read with the validation files, so it names the external test without its result
         log(f"  {ext.dataset}: {len(ext.utterances)} utterances scored (metrics_{ext.dataset}.json), never trained "
             f"or chosen on")
@@ -965,8 +1129,12 @@ def train_job(spec: dict, device, log) -> dict:
     if ts.warm_start != "none":
         # F2 (added 2026-10-29): after the cold scores, the same weights adapted film fold by film fold; the weights
         # come back unchanged, and every IEMOCAP number above is already fixed
-        warm = warm_start_files(external[0], model, job, features, normalizer, segment, device, seed,
-                                prepared.class_names, log, rate=ext_rate)
+        if ts.warm_start == "iemocap":       # added 2026-11-10: speaker by speaker
+            warm = iemocap_warm_files(external[0], model, job, features, normalizer, segment, device, seed, log,
+                                      rate=ext_rate)
+        else:
+            warm = warm_start_files(external[0], model, job, features, normalizer, segment, device, seed,
+                                    prepared.class_names, log, rate=ext_rate)
     provenance = collect("affect.train.loop")
     provenance.update({
         "started_utc": started, "finished_utc": utc_now(), "torch": torch.__version__,

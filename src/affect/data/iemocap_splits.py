@@ -57,6 +57,14 @@ Added 2026-09-26 from the literature review (section 12 of claude/IEMOCAP litera
                                             test speaker's utterances (dealt by class) moved into training;
                                             the other three quarters test ("enroll the user" first)
 
+Added 2026-11-10 (week 33; Harrison, 2026-11-09: the improvised-only folds as a safeguard, now that the speaker folds are
+the main protocol):
+
+    leave_one_speaker_out_train_impro       speaker folds with the partner validating, as leave_one_speaker_out, but
+                                            training and validation use improvised utterances only; the test is the
+                                            whole held-out speaker, so one run scores the improvised utterances and
+                                            the scripted ones, whose scripts no training utterance holds
+
 An utterance in no role of a fold is left out of that run. Group assignments are deals in a fixed
 SHA-256 order (splits.deal), the same on every machine.
 """
@@ -93,16 +101,18 @@ OTHER_SCRIPT_HELD_OUT = "leave_one_session_out_other_script_held_out"
 WITHIN_SPEAKER = "within_speaker_5fold"
 ENROLL_QUARTER = "leave_one_speaker_out_enroll_quarter"
 SCRIPTS = ("script01", "script02", "script03")
+# added 2026-11-10: speaker folds whose training and validation sides keep one kind of utterance (the test keeps all)
+RESTRICTED_SPEAKER_OUT = {"leave_one_speaker_out_train_impro": ("impro", "improvised")}
 
 SPLITS = (LOSO, SPEAKER_OUT, SPEAKER_OUT_PARTNER_TRAIN, DIALOG_5, UTTERANCE_5, WITHIN_5, CROSS_SPEAKER,
           *RESTRICTED_LOSO, HALF, RANDOM_VAL, TEST_AS_VAL, SESSION5, QUARTER, THREE_QUARTER, SCRIPT_HELD_OUT,
-          OTHER_SCRIPT_HELD_OUT, WITHIN_SPEAKER, ENROLL_QUARTER)
+          OTHER_SCRIPT_HELD_OUT, WITHIN_SPEAKER, ENROLL_QUARTER, *RESTRICTED_SPEAKER_OUT)
 
 
 def fold_names(split: str) -> tuple:
     if split in (LOSO, *RESTRICTED_LOSO, HALF, RANDOM_VAL, TEST_AS_VAL, QUARTER, THREE_QUARTER):
         return tuple(f"test_{g}" for g in GROUPS)
-    if split in (SPEAKER_OUT, SPEAKER_OUT_PARTNER_TRAIN, ENROLL_QUARTER):
+    if split in (SPEAKER_OUT, SPEAKER_OUT_PARTNER_TRAIN, ENROLL_QUARTER, *RESTRICTED_SPEAKER_OUT):
         return tuple(f"test_{s}" for s in SPEAKERS)
     if split in (DIALOG_5, UTTERANCE_5):
         return tuple(f"test_{g}" for g in FIVE)
@@ -192,6 +202,18 @@ def _speaker_out(utterances: list, partner_validates: bool) -> tuple:
         folds.append(RoleFold(name=f"test_{speaker}", val_group=val_speaker, train=train,
                               val=_ids(utterances, lambda u: u.speaker == val_speaker),
                               test=_ids(utterances, lambda u: u.speaker == speaker)))
+    return tuple(folds)
+
+
+def _speaker_out_restricted(utterances: list, kind: str, word: str) -> tuple:
+    """leave_one_speaker_out (the partner validates) with the training and validation sides cut to one kind of
+    utterance; the test side is the whole held-out speaker (added 2026-11-10)."""
+    kind_of = {u.utt_id: u.kind for u in utterances}
+    folds = []
+    for f in _speaker_out(utterances, partner_validates=True):
+        folds.append(RoleFold(name=f.name, val_group=f"{f.val_group} {word}",
+                              train=frozenset(i for i in f.train if kind_of[i] == kind),
+                              val=frozenset(i for i in f.val if kind_of[i] == kind), test=f.test))
     return tuple(folds)
 
 
@@ -370,6 +392,8 @@ def build(split: str, utterances: list) -> tuple:
         folds = _within_speaker(utterances)
     elif split == ENROLL_QUARTER:
         folds = _enroll_quarter(utterances)
+    elif split in RESTRICTED_SPEAKER_OUT:
+        folds = _speaker_out_restricted(utterances, *RESTRICTED_SPEAKER_OUT[split])
     else:
         raise ValueError(f"unknown IEMOCAP split {split!r}; known: {SPLITS}")
     if tuple(f.name for f in folds) != fold_names(split):

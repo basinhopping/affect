@@ -17,6 +17,12 @@ refit and refit_epochs were added on 2026-10-29 (Dr. Luitel, 2026-10-21: "when i
 again after with the validation session"; workstream E1 for the networks), and warm_start, warm_start_folds,
 warm_start_epochs and warm_start_lr the same day (her "warm up the models and see if they adapt" on the films,
 workstream F2); settings without them mean none, what the loop did before, with the same hashes.
+external_test iemocap and warm_start iemocap were added on 2026-11-10 (week 33; Dr. Luitel, 2026-11-09: train every
+model on EmoFilm and test it on IEMOCAP, cold and warm): new values of existing fields, so no field is added and no
+configuration's settings or hash change.
+warm_start emofilm_whole was added on 2026-11-15 (RULE_week33_addendum10.txt): EmoFilm's film IDs spell 13 films two to
+four ways, so the warm start's folds of film IDs can put one film on both sides; emofilm_whole deals whole films. A new
+value of an existing field, so no field is added and no configuration's settings or hash change.
 """
 import dataclasses
 from typing import Literal
@@ -71,7 +77,7 @@ class TrainSettings:
     contrastive_weight: float      # weight of the contrastive loss added to the emotion loss; 0 with none
     contrastive_temperature: float | None   # the temperature; None with none
     contrastive_dim: int | None    # outputs of the projection head; None with none
-    external_test: Literal["none", "emofilm"]
+    external_test: Literal["none", "emofilm", "iemocap"]
     # emofilm: after the test set, the chosen epoch's model also scores EmoFilm (affect.data.emofilm, its 726
     # happiness, anger and sadness clips as hap+exc, ang and sad), a corpus it never trains or chooses on, and the
     # run folder gets metrics_emofilm.json and predictions_emofilm.csv. Needs an IEMOCAP label set that holds those
@@ -79,6 +85,11 @@ class TrainSettings:
     # classes (four_merged's neu, added 2026-10-24) is scored on the most probable of the three, and also with its
     # other classes counted as errors (train.loop.external_files). Only measured: it changes no weight, random draw,
     # epoch or IEMOCAP number. none: no external test (the loop before 2026-10-20).
+    # iemocap (added 2026-11-10): the same for a job trained on EmoFilm (data emofilm, split film_5fold,
+    # film_5fold_strat or film_5fold_whole, its three classes): the model also scores IEMOCAP's 3,823 utterances of
+    # those classes (label set three_no_neutral, both kinds, all ten speakers), a corpus it never trains or chooses on:
+    # metrics_iemocap.json and predictions_iemocap.csv (train.loop.iemocap_external_files), with the scores by kind
+    # (improvised, scripted), speaker and gender.
     aux_va: Literal["none", "multitask"]
     # multitask (added 2026-10-24): one more output predicts each utterance's valence and activation (arousal),
     # IEMOCAP's ratings on its 1 to 5 scales (the summary files' means over the evaluators, extra "v" and "a"), from
@@ -104,7 +115,7 @@ class TrainSettings:
     # chosen epoch of the record's runs), fixed before the refit runs. none: train on the training sessions, choose
     # the epoch on validation (the loop before 2026-10-29).
     refit_epochs: int | None       # the epochs of a refit, from 1 to epochs; None with refit none
-    warm_start: Literal["none", "emofilm"]
+    warm_start: Literal["none", "emofilm", "iemocap", "emofilm_whole"]
     # emofilm (added 2026-10-29): after the external test (external_test emofilm, which scores every clip with the
     # chosen epoch's model, cold), the same model is adapted to the films. EmoFilm's films are split into
     # warm_start_folds film folds (affect.classical.finetune.film_folds: the films sorted by name, the k-th in fold k
@@ -119,6 +130,16 @@ class TrainSettings:
     # in IEMOCAP's files changes: it runs after them. Since 2026-11-05 (the films of the final records, the refits) it
     # also follows a refit: the model scored cold and adapted is then the refit's, its last epoch's weights. none: no
     # warm start (the loop before 2026-10-29).
+    # iemocap (added 2026-11-10): the same after external_test iemocap, for a job trained on EmoFilm, with IEMOCAP's
+    # ten speakers in place of the film folds (warm_start_folds 10): for each speaker in turn the weights train for
+    # warm_start_epochs epochs on the other nine speakers' utterances, as above, then score that speaker's, and go
+    # back. Every utterance is scored once, by a model that never heard its speaker: metrics_iemocap_warm.json and
+    # predictions_iemocap_warm.csv (train.loop.iemocap_warm_files).
+    # emofilm_whole (added 2026-11-15, RULE_week33_addendum10.txt): emofilm with whole films dealt into the folds in
+    # place of film IDs (train.loop.warm_start_film_folds: each film ID that spells a film another way counted as that
+    # film, affect.data.emofilm.whole_film, once FILMS.csv is checked against the reviewed titles; the same dealing,
+    # affect.classical.finetune.film_folds, over the films' first IDs), so no film is on both sides of a fold. Its
+    # files are emofilm's (metrics_emofilm_warm.json, predictions_emofilm_warm.csv), after external_test emofilm.
     warm_start_folds: int | None   # film folds, at least 3; None with none
     warm_start_epochs: int | None  # epochs on the other folds' clips, at least 1; None with none
     warm_start_lr: float | None    # the constant learning rate of the warm start, above 0; None with none
@@ -194,11 +215,14 @@ def check(settings: TrainSettings) -> None:
             raise ValueError("train: with warm_start none, warm_start_folds, warm_start_epochs and warm_start_lr are "
                              "None")
     else:
-        if settings.external_test != settings.warm_start:
-            raise ValueError(f"train: warm_start {settings.warm_start!r} needs external_test {settings.warm_start!r} "
+        cold = "emofilm" if settings.warm_start == "emofilm_whole" else settings.warm_start
+        if settings.external_test != cold:
+            raise ValueError(f"train: warm_start {settings.warm_start!r} needs external_test {cold!r} "
                              f"(the cold scores of the same model come first)")
         if settings.warm_start_folds is None or settings.warm_start_folds < 3:
             raise ValueError("train: warm_start needs warm_start_folds of at least 3")
+        if settings.warm_start == "iemocap" and settings.warm_start_folds != 10:
+            raise ValueError("train: warm_start iemocap holds out each of IEMOCAP's ten speakers: warm_start_folds 10")
         if settings.warm_start_epochs is None or settings.warm_start_epochs < 1:
             raise ValueError("train: warm_start needs warm_start_epochs of at least 1")
         if settings.warm_start_lr is None or not settings.warm_start_lr > 0:

@@ -34,12 +34,17 @@ affect/
     catalog.py         one import line per component module
     data/              iemocap.py, iemocap_splits.py (the split schemes), splits.py, ingest.py,
                        assemble.py, transfer.py, walk.py, manifest.py, audio.py, base.py; emofilm.py
-                       (2026-10-20): EmoFilm's happiness, anger and sadness clips, a test corpus only
+                       (2026-10-20): EmoFilm's happiness, anger and sadness clips, a test corpus, and from
+                       2026-11-10 also a training corpus in five film folds (split film_5fold; film_5fold_strat,
+                       2026-11-13, every class in every fold; film_5fold_whole, 2026-11-14, the same over whole
+                       films: the corpus spells 13 films' titles in two to four ways, so its 55 film IDs are 37 films)
     eval/              metrics.py (UA, WA, F1), stats.py (t intervals, paired bootstrap, P(A>B), Holm)
     runs/              store.py (output folders), provenance.py
     env.py             environment and GPU checks
     cli.py             python -m affect.cli ...
-    features/logmel.py
+    features/logmel.py, frames.py (2026-10-26: a pretrained encoder's frames), whisper_logmel.py (2026-11-10:
+                       Whisper's own log-mel, 128 bands, for the networks; tests/test_whisper_logmel.py compares it
+                       with the extractor)
     augment/           settings.py (every augmentation setting), specaugment.py, speed.py (speed
                        perturbation), mixup.py
     models/            cnn.py (the CNN and the shared convolutional front end: normalization layer
@@ -106,7 +111,8 @@ affect/
     iemocap/raw/         verified copies of the received folders, never edited
     iemocap/manifests/   one manifest per raw folder (path, bytes, SHA-256)
     iemocap/assembled/   what training reads, with MANIFEST.csv and ASSEMBLY.json
-    emofilm/assembled/   EmoFilm's 726 clips at 16 kHz (2026-10-20), with MANIFEST.csv and ASSEMBLY.json
+    emofilm/assembled/   EmoFilm's 726 clips at 16 kHz (2026-10-20), with MANIFEST.csv, FILMS.csv, SPEAKERS.csv
+                         and ASSEMBLY.json
   artifacts/           results, written on the node and pulled back
 ```
 
@@ -131,10 +137,18 @@ the concordance correlations), the refit (train.refit and refit_epochs, 2026-10-
 together for a fixed number of epochs, the last weights tested; metrics_val.json then says its validation numbers are
 not held out) and the warm start on the films (train.warm_start, warm_start_folds, warm_start_epochs and
 warm_start_lr, 2026-10-29: after the cold external test, the chosen weights adapted on the other film folds' clips,
-each fold scored by a model that never saw its films, into metrics_emofilm_warm.json and predictions_emofilm_warm.csv).
+each fold scored by a model that never saw its film IDs, into metrics_emofilm_warm.json and predictions_emofilm_warm.csv;
+a film with two to four IDs can have clips on both sides, see film_5fold_whole).
 Since 2026-11-05 the external test and the warm start also run after a refit (its last weights) and with the heads on
 a pretrained encoder's frames, which then read EmoFilm's frames of the same encoder and layer
-(artifacts/features/emofilm/<model>_l<k>_frames, extract-frames --dataset emofilm).
+(artifacts/features/emofilm/<model>_l<k>_frames, extract-frames --dataset emofilm). Since 2026-11-10 the other way
+too: a job trained on EmoFilm's film folds scores IEMOCAP's three classes (train.external_test iemocap) and adapts to
+IEMOCAP speaker by speaker, each speaker scored by a model adapted on the other nine (train.warm_start iemocap,
+warm_start_folds 10), into metrics_iemocap.json, predictions_iemocap.csv and their _warm versions. Since 2026-11-15
+train.warm_start emofilm_whole is the films' warm start on folds of whole films (each film ID that spells a film
+another way counted as that film, once FILMS.csv passes the check of film_5fold_whole), so no film has clips on both
+sides; and the frames' features.normalization frame standardizes each frame over its own dimensions (a layer
+normalization without a learned scale or shift, as EmoBox normalizes its frames).
 
 ## Commands
 
@@ -300,8 +314,10 @@ timer itself.
 A week that runs by itself (from 2026-11-02): `scripts/gpu_week.sh`, started once from a copy outside `~/affect` with
 the week's end as `WEEK_END` (epoch seconds), looks every 5 minutes and starts 3 workers on each GPU that may run and
 that no other user is on, whenever jobs are pending: weekday nights from 18:00 (or the hour in `NIGHT_START`; week 32
-runs from 21:00) to 08:00, weekend days GPUs 2 and 3,
-weekend nights every free GPU; at 08:00 on a weekday it writes each GPU's stop file, and at the end `queue/STOP`.
+runs from 21:00) to 08:00 (or the hour in `NIGHT_END`), weekend days GPUs 2 and 3 (none with `WEEKEND=nights`, which
+gives Saturday and Sunday the weekday hours), weekend nights every free GPU; from 2026-11-13 week 33 runs every free
+GPU from 20:00 to 10:00 with weekends nights only. At a weekday night's end it writes each GPU's stop file, and at the
+end `queue/STOP`.
 Every 15 minutes it also starts `scripts/advance_week.sh` in its own tmux session (if
 `artifacts/advance_week32/ENABLED` exists): `python -m affect.sweep.week32 advance` writes each next stage's sweep file from
 validation files only (a screen's two best configurations confirmed on new seeds, then the record's refit, speaker

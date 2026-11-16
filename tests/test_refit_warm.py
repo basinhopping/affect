@@ -5,6 +5,10 @@ Without torch: the settings and their refusals; the configurations without the n
 new settings change them; the status alert for a validation UA above 0.80 leaves refit runs out (they trained on
 their validation session).
 
+Since 2026-11-15 (RULE_week33_addendum10.txt), warm_start emofilm_whole: the same warm start with whole films dealt
+into its folds (train.loop.warm_start_film_folds), checked without torch on the stand-in's 12 film IDs (8 films) and
+with torch through warm_start_files.
+
 With torch (on the node): warm_start_files on the stand-in EmoFilm (tests/synthetic_emofilm.py, 36 clips of 4 films)
 with a small four-class CNN: every clip is scored once, in the film fold its film belongs to (whole films per fold, the
 rule of affect.classical.finetune.film_folds); the reported UA, per-fold and per-language numbers equal those computed
@@ -76,6 +80,26 @@ class TestSettings(unittest.TestCase):
         check_job(validate_job(refit_warm), 16000)
         self.assertNotEqual(config_hash(validate_job(refit_warm)), config_hash(validate_job(warm)))
 
+    def test_warm_start_whole_films(self):
+        # added 2026-11-15 (RULE_week33_addendum10.txt): emofilm_whole, a new value of warm_start, needs external_test
+        # emofilm as emofilm does, and hashes apart from it
+        from affect.runs.spec import check_job, config_hash, validate_job
+
+        whole = four_class_settings(**dict(WARM, warm_start="emofilm_whole"))
+        check_job(validate_job(whole), 16000)
+        self.assertNotEqual(config_hash(validate_job(whole)), config_hash(validate_job(four_class_settings(**WARM))))
+        refit = four_class_settings(**dict(WARM, warm_start="emofilm_whole"), refit="train_and_val", refit_epochs=5)
+        check_job(validate_job(refit), 16000)
+        for bad in ({"warm_start_folds": 2}, {"warm_start_epochs": 0}, {"warm_start_lr": 0.0},
+                    {"warm_start_folds": None}):
+            with self.assertRaises(ValueError, msg=str(bad)):
+                check_job(validate_job(four_class_settings(**dict(WARM, warm_start="emofilm_whole", **bad))), 16000)
+        with self.assertRaisesRegex(ValueError, "warm_start 'emofilm_whole' needs external_test 'emofilm'"):
+            check_job(validate_job(four_class_settings(**dict(WARM, warm_start="emofilm_whole",
+                                                              external_test="none"))), 16000)
+        with self.assertRaises(ValueError):
+            validate_job(four_class_settings(**dict(WARM, warm_start="emofilm_films")))
+
     def test_forms_without_the_fields_hash_as_before(self):
         from affect.runs.spec import config_hash, plain, validate_job
 
@@ -121,16 +145,76 @@ class TestSettings(unittest.TestCase):
         self.assertIn("b_test_S1_seed1", alerts[0])
 
 
+def reviewed_titles():
+    """Stand-in titles for the 31 reviewed film IDs (as tests.test_emofilm makes them) and their SHA-256 in place of the
+    reviewed ones (affect.data.emofilm.TITLE_SHA256), so check_whole_films passes on a stand-in FILMS.csv."""
+    from affect.data import emofilm as E
+
+    titles = {f: f"Title {E.whole_film(f)} as {f}" for f in E.TITLE_SHA256}
+    return titles, {f: E.title_sha256(t) for f, t in titles.items()}
+
+
+def write_films_csv(assembled: Path, titles: dict, films: int, **changed) -> None:
+    """FILMS.csv for the stand-in's films film_01 to film_<films>: the reviewed IDs' stand-in titles, Film <k> for the
+    others, then the changes given."""
+    rows = dict(titles, **{f"film_{k:02d}": f"Film {k}" for k in range(1, films + 1) if f"film_{k:02d}" not in titles})
+    rows.update(changed)
+    (assembled / "FILMS.csv").write_text("film,title\n" + "".join(f"{f},{t}\n" for f, t in sorted(rows.items())),
+                                         encoding="utf-8")
+
+
+class TestWarmStartFilmFolds(unittest.TestCase):
+    def test_film_ids_and_whole_films(self):
+        # added 2026-11-15 (RULE_week33_addendum10.txt): the stand-in's films film_01 to film_12 hold film_02 and film_07
+        # (with film_01), film_04 (with film_03) and film_09 (with film_08), so 12 film IDs are 8 films. By film IDs
+        # (warm_start emofilm) the folds are film_folds' over the IDs, as before; by whole films (emofilm_whole) the 8
+        # films sorted by first ID, the k-th in fold k mod 5, and no film is in two folds
+        from unittest import mock
+
+        from affect.classical.finetune import film_folds
+        from affect.data import emofilm as E
+        from affect.train.loop import warm_start_film_folds
+        from tests.test_emofilm import utterances
+
+        titles, reviewed = reviewed_titles()
+        with TempEmoFilm(per_cell=3, films=12) as data, mock.patch.object(E, "TITLE_SHA256", reviewed):
+            _, _, utts = utterances()
+            films = [u.extra["film"] for u in utts]
+            self.assertEqual(sorted(set(films)), [f"film_{k:02d}" for k in range(1, 13)])
+            folds, fold_of = warm_start_film_folds(utts, 5, "ids")
+            self.assertEqual(fold_of, film_folds(films, 5))
+            self.assertEqual(folds.tolist(), [fold_of[f] for f in films])
+            self.assertNotEqual(fold_of["film_01"], fold_of["film_02"])       # one film on both sides by IDs
+            with self.assertRaises(FileNotFoundError):
+                warm_start_film_folds(utts, 5, "whole")                      # no FILMS.csv, no whole films
+            write_films_csv(data.assembled, titles, 12)
+            folds, fold_of = warm_start_film_folds(utts, 5, "whole")
+            self.assertEqual(fold_of, {"film_01": 0, "film_03": 1, "film_05": 2, "film_06": 3, "film_08": 4,
+                                       "film_10": 0, "film_11": 1, "film_12": 2})
+            self.assertEqual(folds.tolist(), [fold_of[E.whole_film(f)] for f in films])
+            seen = {}
+            for f, k in zip(films, folds.tolist()):
+                seen.setdefault(E.whole_film(f), set()).add(k)
+            self.assertEqual(len(seen), 8)
+            self.assertTrue(all(len(v) == 1 for v in seen.values()))
+            self.assertEqual(sorted(set(folds.tolist())), [0, 1, 2, 3, 4])
+            write_films_csv(data.assembled, titles, 12, film_02="Another title")
+            with self.assertRaisesRegex(ValueError, "not the film list SAME_FILM was reviewed against"):
+                warm_start_film_folds(utts, 5, "whole")
+            with self.assertRaisesRegex(ValueError, "must be ids or whole"):
+                warm_start_film_folds(utts, 5, "films")
+
+
 @needs_module("torch")
 class TestWarmStartTorch(unittest.TestCase):
-    def _parts(self):
+    def _parts(self, warm_start="emofilm"):
         import torch
 
         from affect.features.logmel import LogMel, LogMelSettings
         from affect.models.cnn import CNNSettings, build_cnn
         from affect.runs.spec import validate_job
 
-        settings = three_class_settings(external_test="emofilm", warm_start="emofilm", warm_start_folds=3,
+        settings = three_class_settings(external_test="emofilm", warm_start=warm_start, warm_start_folds=3,
                                         warm_start_epochs=2, warm_start_lr=1e-3, batch_size=4, crop_s=0.1,
                                         eval_batch_size=4, precision="fp32", max_batches_per_epoch=None)
         settings["augment"].update({"freq_masks": 0, "freq_mask_width": 0, "time_masks": 0, "time_mask_width": 0,
@@ -192,6 +276,53 @@ class TestWarmStartTorch(unittest.TestCase):
         cold_rows = list(csv.DictReader(io.StringIO(cold_text)))
         cold_probs = np.array([[float(r[f"prob_{c}"]) for c in model_classes] for r in cold_rows])
         self.assertGreater(np.abs(cold_probs - probs).max(), 1e-4, "the adapted models score like the cold one")
+        self.assertNotIn("films", metrics["warm_start"])
+
+    def test_warm_start_whole_films(self):
+        # added 2026-11-15 (RULE_week33_addendum10.txt): warm_start emofilm_whole on the stand-in's 12 film IDs (8 films)
+        # in 3 folds: every clip is scored in its whole film's fold, the metrics say whole films and count 8 films; by
+        # film IDs (emofilm) the same model's folds count 12 and split a film; the weights come back unchanged
+        from unittest import mock
+
+        import torch
+
+        from affect.data import emofilm as E
+        from affect.train import data as train_data
+        from affect.train.loop import Normalizer, warm_start_files
+
+        model_classes = ("neu", "hap+exc", "ang", "sad")
+        titles, reviewed = reviewed_titles()
+        with TempEmoFilm(per_cell=3, films=12) as data, mock.patch.object(E, "TITLE_SHA256", reviewed):
+            write_films_csv(data.assembled, titles, 12)
+            train_data._EXTERNAL.clear()
+            ext = train_data.prepare_external("emofilm", "three_no_neutral")
+            job, model, feats = self._parts("emofilm_whole")
+            ids_job, _, _ = self._parts("emofilm")
+            before = {k: v.detach().clone() for k, v in model.state_dict().items()}
+            metrics, text, _ = warm_start_files(ext, model, job, feats, Normalizer("utterance"), None,
+                                                torch.device("cpu"), 7, model_classes, lambda m: None)
+            for k, v in model.state_dict().items():
+                self.assertTrue(torch.equal(v, before[k]), k)
+            ids_metrics, ids_text, _ = warm_start_files(ext, model, ids_job, feats, Normalizer("utterance"), None,
+                                                        torch.device("cpu"), 7, model_classes, lambda m: None)
+            train_data._EXTERNAL.clear()
+        rows = list(csv.DictReader(io.StringIO(text)))
+        self.assertEqual([r["utt_id"] for r in rows], [u.utt_id for u in ext.utterances])
+        expected = {"film_01": 0, "film_03": 1, "film_05": 2, "film_06": 0, "film_08": 1, "film_10": 2,
+                    "film_11": 0, "film_12": 1}
+        for r in rows:
+            self.assertEqual(int(r["film_fold"]), expected[E.whole_film(r["film"])], r["film"])
+        self.assertEqual(metrics["warm_start"]["films"], "whole")
+        self.assertEqual(sum(metrics["warm_start"]["films_per_fold"]), 8)
+        self.assertEqual(sum(metrics["warm_start"]["clips_per_fold"]), len(rows))
+        self.assertNotIn("films", ids_metrics["warm_start"])
+        self.assertEqual(sum(ids_metrics["warm_start"]["films_per_fold"]), 12)
+        ids_rows = list(csv.DictReader(io.StringIO(ids_text)))
+        split = {}
+        for r in ids_rows:
+            split.setdefault(E.whole_film(r["film"]), set()).add(r["film_fold"])
+        self.assertTrue(any(len(v) > 1 for v in split.values()), "by film IDs no film is split, as it should be")
+        self.assertNotEqual(text, ids_text)
 
 
 if __name__ == "__main__":

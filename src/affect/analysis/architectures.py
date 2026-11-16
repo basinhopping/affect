@@ -113,8 +113,8 @@ def describe(name: str, sweep_id: str, config: str, settings: dict, seconds: int
     torch.manual_seed(0)
     model = MODELS.get(job.model_name).target(job.model, width, n_classes)
     model.eval()
-    if job.features_name == "logmel":
-        features = FEATURES.get("logmel").target(job.features, sample_rate, torch.device("cpu"))
+    if job.features_name in ("logmel", "whisper_logmel"):       # whisper_logmel added 2026-11-10
+        features = FEATURES.get(job.features_name).target(job.features, sample_rate, torch.device("cpu"))
         wave = 0.1 * torch.randn(1, seconds * sample_rate, generator=torch.Generator().manual_seed(0))
         x = features(wave)
         valid = torch.tensor([int(features.frames(seconds * sample_rate))])

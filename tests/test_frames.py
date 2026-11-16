@@ -243,7 +243,7 @@ class TestChecks(unittest.TestCase):
         refused[1]["data"]["label_set"] = "three_no_neutral"
         refused[1]["train"]["external_test"] = "emofilm"
         refused[2]["model"] = json.loads((REPO / "sweeps" / "cnn_screen_1.json").read_text())["base"]["model"]
-        for normalization in ("utterance", "global", "none"):
+        for normalization in ("utterance", "global", "none", "frame"):     # frame added 2026-11-15
             films = job_settings(POOL, normalization=normalization, external_test="emofilm", warm_start="emofilm",
                                  warm_start_folds=5, warm_start_epochs=10, warm_start_lr=5e-5)
             self.assertEqual(films["data"]["label_set"], "four_merged")     # scored on EmoFilm's three classes
@@ -257,6 +257,21 @@ class TestChecks(unittest.TestCase):
         logmel_with_head["model"] = dict(POOL)
         with self.assertRaises(ValueError):
             check_job(validate_job(logmel_with_head), 16000)
+
+    def test_frame_normalization_setting(self):
+        # added 2026-11-15 (RULE_week33_addendum10.txt): normalization frame, a new value of the frames' existing field,
+        # for the frames only; a job with it hashes apart from the same job with utterance, and the log-mel refuses it
+        from affect.runs.spec import check_job, config_hash, plain, validate_job
+
+        utterance, frame = (validate_job(job_settings(POOL, normalization=n)) for n in ("utterance", "frame"))
+        check_job(frame, 16000)
+        self.assertEqual(plain(frame)["features"]["normalization"], "frame")
+        self.assertNotEqual(config_hash(frame), config_hash(utterance))
+        self.assertEqual(sorted(plain(frame)["features"]), sorted(plain(utterance)["features"]))
+        logmel = json.loads((REPO / "sweeps" / "cnn_screen_1.json").read_text())["base"]
+        logmel["features"]["normalization"] = "frame"
+        with self.assertRaises(ValueError):
+            validate_job(logmel)
 
 
 class TestBatches(unittest.TestCase):
@@ -387,6 +402,31 @@ class TestHeads(unittest.TestCase):
                     alone = net(x[k:k + 1, :, :n], valid[k:k + 1])
                     self.assertTrue(torch.allclose(together[k], alone[0], atol=1e-4), (model["name"], k))
             self.assertEqual(net.embed(x, valid).shape[1], net.embedding_dim, model["name"])
+
+    def test_frame_normalization(self):
+        # added 2026-11-15 (RULE_week33_addendum10.txt): Normalizer("frame") standardizes each real frame over its own
+        # dimensions, as torch's layer norm without a scale or shift does; padded frames are 0, whatever they held, and
+        # the padding changes no real frame
+        import torch
+
+        from affect.train.loop import Normalizer, make_normalizer
+
+        rng = np.random.default_rng(2)
+        x = torch.from_numpy((3.0 + 5.0 * rng.standard_normal((3, WIDTH, 23))).astype(np.float32))
+        valid = torch.tensor([23, 9, 2])
+        norm = Normalizer("frame")
+        out = norm(x, valid)
+        ref = torch.nn.functional.layer_norm(x.transpose(1, 2), (WIDTH,), eps=1e-5).transpose(1, 2)
+        for k, n in enumerate(valid.tolist()):
+            self.assertTrue(torch.allclose(out[k, :, :n], ref[k, :, :n], atol=1e-5), k)
+            self.assertTrue(torch.allclose(out[k, :, :n].mean(dim=0), torch.zeros(n), atol=1e-5), k)
+            self.assertTrue(torch.allclose(out[k, :, :n].var(dim=0, unbiased=False), torch.ones(n), atol=1e-3), k)
+            self.assertEqual(float(out[k, :, n:].abs().sum()), 0.0, k)
+        padded = x.clone()
+        for k, n in enumerate(valid.tolist()):
+            padded[k, :, n:] = 7.0
+        self.assertTrue(torch.equal(norm(padded, valid), out))
+        self.assertEqual(make_normalizer("frame", None, None, None, 4, torch.device("cpu")).mode, "frame")
 
     def test_widths(self):
         self.assertEqual(self.build(POOL).embedding_dim, 64)

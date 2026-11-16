@@ -54,10 +54,13 @@ assert set(SPECTROGRAM_MODELS) <= set(ENCODERS)
 class FramesSettings:
     model: Literal[ENCODERS]       # the frozen encoder (affect.classical.settings.PRETRAINED_MODELS)
     layer: int                     # its hidden layer: 0 (the encoder's input projection or embedding) to the last
-    normalization: Literal["utterance", "global", "speaker", "none"]
+    normalization: Literal["utterance", "global", "speaker", "none", "frame"]
     # as the log-mel's (affect.train.loop.Normalizer), per dimension of the layer: utterance, each dimension standardized
     # over the utterance's own frames; global, with the training frames' statistics; speaker, with every frame of the
-    # row's speaker (its audio, labels unused); none, the encoder's values as they are
+    # row's speaker (its audio, labels unused); none, the encoder's values as they are. frame (added 2026-11-15,
+    # RULE_week33_addendum10.txt): each frame standardized over its own dimensions, a layer normalization without a
+    # learned scale or shift (EmoBox's "layer normalization" of the frames, Ma et al. 2024, p. 4). A new value of an
+    # existing field, so no configuration's settings or hash change
 
 
 def check(settings: FramesSettings) -> None:

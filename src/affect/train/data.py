@@ -103,19 +103,23 @@ class External:
 _EXTERNAL: dict = {}
 # The label set each test corpus is read in (train.external_test): EmoFilm has only three_no_neutral, whose classes
 # a model of IEMOCAP's three_no_neutral or of a set holding those classes (four_merged, added 2026-10-24) predicts.
-EXTERNAL_LABEL_SETS = {"emofilm": "three_no_neutral"}
+# IEMOCAP (added 2026-11-10) is the test corpus of the models trained on EmoFilm, in the same three classes.
+EXTERNAL_LABEL_SETS = {"emofilm": "three_no_neutral", "iemocap": "three_no_neutral"}
+# the rest of each test corpus's data settings: every utterance (EmoFilm: all three languages; IEMOCAP: both kinds and
+# all ten speakers; its split, which the utterances do not depend on, only completes the settings)
+EXTERNAL_DATA = {"emofilm": {"subset": "all"}, "iemocap": {"subset": "all", "split": "leave_one_speaker_out"}}
 
 
 def prepare_external(data_name: str, label_set: str) -> External:
-    """Every utterance of a test corpus (EmoFilm: all three languages) in the given label set, read once per
-    process. Its dataset has no fold scheme or vote distributions, so prepare() is not used."""
+    """Every utterance of a test corpus (EmoFilm: all three languages; IEMOCAP: all of them, added 2026-11-10) in the
+    given label set, read once per process. No fold scheme or vote distribution is used, so prepare() is not used."""
     from affect.settings import validate
 
     key = (data_name, label_set)
     if key in _EXTERNAL:
         return _EXTERNAL[key]
     entry = DATASETS.get(data_name)
-    settings = validate(entry.settings_class, {"label_set": label_set, "subset": "all"}, "external test")
+    settings = validate(entry.settings_class, {"label_set": label_set, **EXTERNAL_DATA[data_name]}, "external test")
     ds = entry.target()
     utterances = ds.utterances(settings)
     class_names = tuple(ds.class_order(settings))

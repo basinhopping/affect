@@ -1,0 +1,58 @@
+{
+ "sweep_id": "classical_spk33_whisper_impro4",
+ "description": "Week 33 (2026-11-09 to 2026-11-16; Harrison, 2026-11-09: the improvised-only folds as a safeguard, now that the speaker folds are the main protocol): the SVM probe probe30_whisper_large_v3_so4 (4c19be6604d3), its layer fixed, as classical_spk32_whisper ran it, in four classes in speaker-specific folds trained and validated on improvised utterances only (one speaker tests, all of its utterances; the other speaker of the same session validates on its improvised ones; the other eight speakers train on theirs), refitted on training plus validation; C and gamma are chosen on each fold's validation speaker as the probe chooses them. Only data.split differs from classical_spk32_whisper. Seed 1. How the results are read is fixed in RULE_week33_addendum1.txt (analyses/week33_prep_20261109) before any run. Runs on CPUs.",
+ "folds": [
+  "test_Ses01_F",
+  "test_Ses01_M",
+  "test_Ses02_F",
+  "test_Ses02_M",
+  "test_Ses03_F",
+  "test_Ses03_M",
+  "test_Ses04_F",
+  "test_Ses04_M",
+  "test_Ses05_F",
+  "test_Ses05_M"
+ ],
+ "base": {
+  "data": {
+   "name": "iemocap",
+   "label_set": "four_merged",
+   "subset": "all",
+   "split": "leave_one_speaker_out_train_impro"
+  },
+  "functionals": {
+   "feature_set": "whisper_large_v3_l31",
+   "normalization": "speaker"
+  },
+  "method": {
+   "name": "svm",
+   "kernel": "rbf",
+   "c_values": [
+    0.1,
+    1.0,
+    10.0,
+    100.0
+   ],
+   "gamma_scales": [
+    0.3,
+    1.0,
+    3.0
+   ],
+   "class_weight": "balanced"
+  },
+  "protocol": {
+   "control": "none",
+   "refit": "train_and_val"
+  }
+ },
+ "stages": [
+  {
+   "name": "refit",
+   "kind": "base",
+   "priority": 100,
+   "seeds": [
+    1
+   ]
+  }
+ ]
+}

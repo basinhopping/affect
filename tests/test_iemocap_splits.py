@@ -162,6 +162,24 @@ class TestSchemes(unittest.TestCase):
                 other = {"gender": {"F", "M"}, "kind": {"impro", "script"}}[field]
                 self.assertEqual(self.attr(roles["test"], field), other, f"{split}: the whole session is tested")
 
+    def test_restricted_speaker_schemes(self):
+        # added 2026-11-10: the speaker folds of leave_one_speaker_out, training and validation cut to one kind, the
+        # whole held-out speaker tested
+        plain = dict(self.roles(S.SPEAKER_OUT))
+        for split, (kind, word) in S.RESTRICTED_SPEAKER_OUT.items():
+            self.assertEqual(S.fold_names(split), S.fold_names(S.SPEAKER_OUT))
+            for fold, roles in self.roles(split):
+                full = next(r for f, r in self.roles(S.SPEAKER_OUT) if f.name == fold.name)
+                self.assertEqual(self.attr(roles["train"] + roles["val"], "kind"), {kind}, split)
+                self.assertEqual(roles["test"], full["test"], f"{split}: the whole speaker is tested")
+                self.assertEqual(self.attr(roles["test"], "kind"), {"impro", "script"})
+                self.assertEqual(roles["train"], sorted(i for i in full["train"] if self.by_id[i].kind == kind))
+                self.assertEqual(roles["val"], sorted(i for i in full["val"] if self.by_id[i].kind == kind))
+                self.assertEqual(self.attr(roles["val"], "speaker"), self.attr(full["val"], "speaker"))
+                self.assertEqual(len(self.attr(roles["train"], "speaker")), 8)
+                self.assertTrue(fold.val_group.endswith(word))
+        self.assertTrue(plain)
+
     def test_half_train_is_a_stratified_half(self):
         for fold, roles in self.roles(S.HALF):
             full = next(r for f, r in self.roles(S.LOSO) if f.name == fold.name)

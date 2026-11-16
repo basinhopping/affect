@@ -29,6 +29,8 @@ The split schemes are in `src/affect/data/iemocap_splits.py`. Each run records t
 | Speaker-specific (leave one speaker out) | 10 | one speaker tests, the other speaker of that session validates, the eight speakers of the other sessions train | `28d0bbb5` |
 | Session-agnostic (utterance folds) | 5 | utterances dealt into five groups by session, speaker and class; test speakers are also heard in training | `7da94e15` four classes, `95f824d3` three |
 | Script held out | 15 | each fold tests one session's utterances of one script and keeps that script out of training; the control keeps another script out instead | |
+| Speaker-specific, improvised only (from 2026-11-10) | 10 | as speaker-specific, but training and validation use improvised utterances only; the whole held-out speaker is tested, so its scripted utterances test scripts no training utterance holds | |
+| EmoFilm's film folds (from 2026-11-10) | 5 | EmoFilm's 726 clips of its three shared classes, the films dealt into five folds (the k-th film by name in fold k mod 5); one fold tests, the next validates, three train; the refit trains on four and also scores IEMOCAP's 3,823 utterances of the three classes, cold and adapted speaker by speaker | |
 
 One script fold, session 5 script 3, holds no sad utterance, so macro accuracy is not defined on it and the script
 comparisons read the other 14 folds.

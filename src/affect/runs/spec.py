@@ -109,12 +109,13 @@ def input_width(job: Job) -> int:
 
 def check_job(job: Job, sample_rate: int) -> None:
     """Checks across sections. Needs no torch, so it runs at enqueue time."""
-    from affect.features import frames, logmel
+    from affect.features import frames, logmel, whisper_logmel
     from affect.models import cnn, cnn_lif, cnn_rnn, cnn_transformer, snn
     from affect.models import frames as frame_models
 
-    if job.features_name == "logmel":
-        logmel.check(job.features, sample_rate)
+    if job.features_name in ("logmel", "whisper_logmel"):
+        # whisper_logmel (added 2026-11-10): Whisper's own log-mel, read by the same models as logmel
+        (logmel if job.features_name == "logmel" else whisper_logmel).check(job.features, sample_rate)
         if job.model_name not in LOGMEL_MODELS:
             raise ValueError(f"model {job.model_name!r} reads a pretrained encoder's frames, not log-mel features")
     elif job.features_name == "pretrained_frames":
@@ -140,7 +141,17 @@ def check_job(job: Job, sample_rate: int) -> None:
         # the contrastive loss pairs utterances by label (added 2026-10-15); mixup blends two utterances
         # and their labels, so an utterance would no longer have one label to be paired by
         raise ValueError("train: a contrastive loss needs mixup_alpha 0 (mixup blends the labels it pairs by)")
-    if job.train.external_test != "none":
+    if job.train.external_test == "iemocap":
+        # added 2026-11-10: a model trained on EmoFilm's film folds in its three classes scores IEMOCAP's utterances of
+        # those classes; IEMOCAP's speakers are not EmoFilm's, so no normalization by speaker statistics
+        # (split film_5fold_strat added 2026-11-13, RULE_week33_addendum5.txt; film_5fold_whole 2026-11-14, addendum 8)
+        if (job.data_name != "emofilm" or job.data.label_set != "three_no_neutral"
+                or job.data.split not in ("film_5fold", "film_5fold_strat", "film_5fold_whole")):
+            raise ValueError("train: external_test iemocap needs data emofilm, label set three_no_neutral and split "
+                             "film_5fold, film_5fold_strat or film_5fold_whole")
+        if job.features.normalization == "speaker":
+            raise ValueError("train: external_test iemocap needs a normalization other than speaker")
+    elif job.train.external_test != "none":
         # added 2026-10-20: EmoFilm holds IEMOCAP's three classes only, and its speakers are not IEMOCAP's, so a
         # normalization by IEMOCAP speaker statistics has nothing to apply to its clips. Since 2026-10-24 a label set
         # with more classes than those three (four_merged) is allowed too: its model is scored on the three.
@@ -155,6 +166,10 @@ def check_job(job: Job, sample_rate: int) -> None:
                              f"its classes {list(needed)} (three_no_neutral or four_merged)")
         if job.features.normalization == "speaker":
             raise ValueError("train: external_test emofilm needs a normalization other than speaker")
+    if job.data_name != "iemocap" and (job.train.aux_gender != "none" or job.features.normalization == "speaker"):
+        # added 2026-11-10 with EmoFilm as a training corpus: the gender head reads IEMOCAP's speaker_gender field, and
+        # EmoFilm's actors have 1 to 18 clips each, too few for statistics of their own
+        raise ValueError(f"data {job.data_name}: aux_gender and the speaker normalization need IEMOCAP")
     if job.train.aux_va != "none" and job.data_name != "iemocap":
         # added 2026-10-24: the valence and activation ratings are IEMOCAP's (extra "v" and "a")
         raise ValueError("train: aux_va needs IEMOCAP, whose utterances carry valence and activation ratings")

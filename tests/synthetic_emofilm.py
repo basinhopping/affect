@@ -23,8 +23,9 @@ def write_wav(path: Path, samples: np.ndarray, rate: int = 16000) -> None:
         handle.writeframes(samples.astype("<i2").tobytes())
 
 
-def write_assembly(assembled: Path, per_cell: int = 2, seed: int = 0) -> list:
-    """per_cell clips for every language, gender and kept emotion; returns the manifest's rows."""
+def write_assembly(assembled: Path, per_cell: int = 2, seed: int = 0, films: int = 4) -> list:
+    """per_cell clips for every language, gender and kept emotion, spread over the given number of films (4, as
+    before 2026-11-10, unless asked); returns the manifest's rows."""
     rng = np.random.default_rng(seed)
     (assembled / "wav").mkdir(parents=True)
     rows, k = [], 0
@@ -39,7 +40,7 @@ def write_assembly(assembled: Path, per_cell: int = 2, seed: int = 0) -> list:
                     write_wav(assembled / "wav" / f"{stem}.wav", samples)
                     digest = hashlib.sha256((assembled / "wav" / f"{stem}.wav").read_bytes()).hexdigest()
                     rows.append({"utt_id": stem, "audio_path": f"wav/{stem}.wav",
-                                 "speaker": f"emofilm_{gender}_{1 + k % 5:03d}", "film": f"film_{1 + k % 4:02d}",
+                                 "speaker": f"emofilm_{gender}_{1 + k % 5:03d}", "film": f"film_{1 + k % films:02d}",
                                  "language": lang, "gender": gender, "emotion_code": code, "emotion": emotion,
                                  "scene": f"{k:03d}", "segment": "a", "n_frames": n, "sample_rate": 16000,
                                  "sha256": digest, "source_sha256": digest})
